@@ -51,6 +51,7 @@ function App() {
   }
 
   return <div className="app-shell">
+    {menuOpen && <button className="sidebar-overlay" aria-label="关闭侧边栏" onClick={() => setMenuOpen(false)} />}
     <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
       <div className="brand"><div className="brand-mark"><Navigation size={19}/></div><div><b>同行</b><span>TRAVEL TOGETHER</span></div></div>
       <button className="close-menu" onClick={() => setMenuOpen(false)}><X /></button>
