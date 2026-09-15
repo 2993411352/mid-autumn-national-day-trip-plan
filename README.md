@@ -1,5 +1,31 @@
 # 中秋国庆出行计划（3人版）
 
+> 这个仓库现在同时包含「同行 · 川西 2026」旅行协作网页。它把下面的文字计划变成了适合手机使用的行程、天气、地图、AA 账本、攻略和图册界面。
+
+## 网页版
+
+### 本地运行
+
+```bash
+npm install
+npm run dev
+```
+
+生产构建：
+
+```bash
+npm run build
+npm run preview
+```
+
+项目已经配置 `.github/workflows/deploy.yml`。推送到 `main` 后，在仓库 **Settings → Pages → Build and deployment** 中将 Source 设为 **GitHub Actions**，即可发布到：
+
+`https://2993411352.github.io/mid-autumn-national-day-trip-plan/`
+
+当前版本在未登录状态下使用浏览器本地存储保存账目和照片预览。多人账号、云同步和原图共享需要后续接入 Supabase；具体边界与迭代顺序见 [PRODUCT_PLAN.md](./PRODUCT_PLAN.md)。
+
+---
+
 行程设定：**9/25、9/26 在成都；9/27 开始自驾川西小环线；10/1 回到成都。**
 
 ---
