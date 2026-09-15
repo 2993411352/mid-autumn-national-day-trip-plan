@@ -49,6 +49,12 @@ export async function joinTrip(inviteCode: string, displayName: string) {
   return data as string
 }
 
+export async function updateMemberName(tripId: string, displayName: string) {
+  if (!supabase) throw new Error('后端尚未配置')
+  const { error } = await supabase.rpc('update_trip_member_name', { p_trip_id: tripId, p_display_name: displayName.trim() })
+  if (error) throw error
+}
+
 export async function getExpenses(tripId: string) {
   if (!supabase) return []
   const { data, error } = await supabase.from('expenses').select('id,title,category,payer_name,amount,expense_date').eq('trip_id', tripId).order('created_at', { ascending: false })
