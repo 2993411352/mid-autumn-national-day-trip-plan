@@ -35,9 +35,3 @@ export const guides = [
   { tag: '避坑', title: '折多山停车与高反', place: '康定', meta: '停留不超过 30 分钟', emoji: '🫁', color: '#536b92' },
   { tag: '酒店', title: '高海拔住宿检查表', place: '新都桥', meta: '供氧 · 热水 · 电热毯', emoji: '🛏️', color: '#9a6b4a' },
 ]
-
-export const defaultExpenses = [
-  { id: 1, title: '成都酒店 · 2晚', category: '住宿', payer: '小明', amount: 1280, date: '09.25' },
-  { id: 2, title: '租车订金', category: '交通', payer: '阿岚', amount: 800, date: '09.24' },
-  { id: 3, title: '双桥沟门票', category: '门票', payer: '小北', amount: 450, date: '09.29' },
-]
