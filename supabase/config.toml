@@ -1,4 +1,20 @@
 project_id = "mid-autumn-national-day-trip-plan"
 
+[auth]
+enabled = true
+site_url = "https://2993411352.github.io/mid-autumn-national-day-trip-plan/"
+additional_redirect_urls = [
+  "https://2993411352.github.io/mid-autumn-national-day-trip-plan/",
+  "http://127.0.0.1:5173/mid-autumn-national-day-trip-plan/",
+  "http://127.0.0.1:5174/mid-autumn-national-day-trip-plan/"
+]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+
 [functions.trip-agent]
 verify_jwt = true
