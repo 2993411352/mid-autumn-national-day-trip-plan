@@ -1,0 +1,4 @@
+project_id = "mid-autumn-national-day-trip-plan"
+
+[functions.trip-agent]
+verify_jwt = true

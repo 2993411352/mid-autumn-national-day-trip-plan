@@ -22,7 +22,7 @@ npm run preview
 
 `https://2993411352.github.io/mid-autumn-national-day-trip-plan/`
 
-当前版本在未登录状态下使用浏览器本地存储保存账目和照片预览。多人账号、云同步和原图共享需要后续接入 Supabase；具体边界与迭代顺序见 [PRODUCT_PLAN.md](./PRODUCT_PLAN.md)。
+未登录时，网站使用浏览器本地存储保存账目和照片预览；配置 Supabase 后，会自动启用邮箱登录、成员邀请、云端账本、私有共享图册和服务端行程智能体。完整上线步骤见 [BACKEND_SETUP.md](./BACKEND_SETUP.md)，产品边界与迭代顺序见 [PRODUCT_PLAN.md](./PRODUCT_PLAN.md)。
 
 ---
 

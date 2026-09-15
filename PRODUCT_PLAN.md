@@ -16,14 +16,25 @@
 - 响应式布局，可作为手机 PWA 使用
 - GitHub Pages 自动部署工作流
 
-## 上线前需要接入
+## 后端基础（代码已完成，待绑定云项目）
 
-### P0：多人真正可用
+- Supabase 邮箱登录与成员邀请码
+- Postgres 行程、备注、账目、图册和聊天数据模型
+- 全表 Row Level Security 与私有照片 bucket
+- 账本云同步及图册签名链接
+- 受 JWT 保护的 `trip-agent` Edge Function
+- OpenAI Responses API 服务端调用，密钥不进入前端
 
-1. Supabase Auth：邮箱魔法链接或微信/手机号登录。
-2. Postgres：行程、备注、花销与成员权限实时同步。
-3. Storage：照片原图上传、缩略图、批量下载。
-4. Row Level Security：只有旅程成员能读取数据；账目保留修改记录。
+部署与密钥配置见 `BACKEND_SETUP.md`。
+
+## 后续迭代
+
+### P0：完成云项目绑定
+
+1. 创建 Supabase 项目并执行仓库 migration。
+2. 配置 GitHub Actions 前端环境变量和登录回调网址。
+3. 配置 OpenAI Edge Function secret 并部署函数。
+4. 增加图册缩略图、批量下载与账目修改历史。
 
 ### P1：旅行中更聪明
 
