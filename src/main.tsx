@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ArrowRight, CalendarDays, Camera, Check, ChevronRight, CircleDollarSign, CloudSun, Compass, Download, Fuel, Home, Map, MapPin, Menu, MessageCircle, Navigation, Plus, Route, Search, Settings, Sparkles, Users, Utensils, WalletCards, X } from 'lucide-react'
 import { guides, tripDays, type DayPlan } from './data'
-import { askTripAgent, createExpense, joinTrip, signInWithEmail, supabase, uploadPhoto, type CloudPhoto } from './lib/backend'
+import { askTripAgent, createExpense, joinTrip, signInWithEmail, supabase, uploadPhoto, verifyEmailOtp, type CloudPhoto } from './lib/backend'
 import { useBackend } from './hooks/useBackend'
 import './styles.css'
 
@@ -18,7 +18,7 @@ const navItems: { id: Tab; label: string; icon: React.ElementType }[] = [
 function daysToTrip() {
   const diff = Math.ceil((new Date('2026-09-25T00:00:00+08:00').getTime() - Date.now()) / 86400000)
   if (diff > 0) return `距离出发还有 ${diff} 天`
-  if (diff >= -6) return `旅程第 ${Math.abs(diff) + 1} 天`
+  if (diff >= -9) return `旅程第 ${Math.abs(diff) + 1} 天`
   return '这趟旅程已结束'
 }
 
@@ -54,7 +54,7 @@ function App() {
     <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
       <div className="brand"><div className="brand-mark"><Navigation size={19}/></div><div><b>同行</b><span>TRAVEL TOGETHER</span></div></div>
       <button className="close-menu" onClick={() => setMenuOpen(false)}><X /></button>
-      <div className="trip-mini"><span className="eyebrow">当前旅程 · {backend.trip ? '云端已同步' : backend.session ? '等待加入' : '本机预览'}</span><strong>{backend.trip?.name || '川西小环线'}</strong><small>2026.09.25 — 10.01</small><div className="travelers">{memberNames.slice(0,5).map((name,i)=><span key={`${name}-${i}`} title={name}>{name.slice(-1)}</span>)}<button aria-label="邀请或加入同伴" onClick={()=>setAuthOpen(true)}><Plus size={13}/></button></div></div>
+      <div className="trip-mini"><span className="eyebrow">当前旅程 · {backend.trip ? '云端已同步' : backend.session ? '等待加入' : '本机预览'}</span><strong>{backend.trip?.name || '川西小环线'}</strong><small>2026.09.25 — 10.04</small><div className="travelers">{memberNames.slice(0,5).map((name,i)=><span key={`${name}-${i}`} title={name}>{name.slice(-1)}</span>)}<button aria-label="邀请或加入同伴" onClick={()=>setAuthOpen(true)}><Plus size={13}/></button></div></div>
       <nav>{navItems.map(({ id, label, icon: Icon }) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => {setTab(id);setMenuOpen(false)}}><Icon size={20}/><span>{label}</span>{id === 'expense' && <em>¥{total.toLocaleString()}</em>}</button>)}</nav>
       <div className="side-bottom"><button onClick={downloadOfflineGuide}><Download size={18}/>离线资料包<span className="downloaded">下载清单</span></button><button onClick={()=>setAuthOpen(true)}><Settings size={18}/>旅程设置</button></div>
       <button className="profile" onClick={()=>setAuthOpen(true)}><div className="avatar">{currentName.slice(-1)}</div><div><strong>{currentName}</strong><small>{backend.trip ? `${memberCount} 位同行人 · 云端同步` : backend.session ? '尚未加入旅程' : '点击登录同步'}</small></div><ChevronRight size={18}/></button>
@@ -88,11 +88,11 @@ function HomeView({ selectedDay, setSelectedDay, setTab, openAuth, currentName, 
     <PageHeading eyebrow={new Intl.DateTimeFormat('zh-CN', { month:'long', day:'numeric', weekday:'long' }).format(new Date())} title={`晚上好，${currentName}`} note={`${daysToTrip()} · ${connected ? `${memberCount} 位同行人的` : '我的'}川西小环线`} action={<button className="outline-button" onClick={openAuth}><Users size={17}/>{connected?'邀请同伴':'登录同步'}</button>} />
     <section className="hero-card">
       <div className="hero-art"><div className="sun"/><div className="mountain m1"/><div className="mountain m2"/><div className="road"/><div className="route-pin p1"/><div className="route-pin p2"/></div>
-      <div className="hero-copy"><span className="status-chip"><i/> 行程准备中</span><h2>从烟火成都，驶向<br/><em>雪山与草原</em></h2><p>7 天 · 1,058 公里 · {memberCount || 1} 位同行人</p><div className="hero-actions"><button onClick={() => setTab('trip')}>查看完整行程 <ArrowRight size={17}/></button><button onClick={() => setTab('map')}><Map size={17}/>路线地图</button></div></div>
+      <div className="hero-copy"><span className="status-chip"><i/> 行程准备中</span><h2>从四姑娘山，驶向<br/><em>稻城亚丁</em></h2><p>8 天 · 约 1,735 公里 · {memberCount || 1} 位同行人</p><div className="hero-actions"><button onClick={() => setTab('trip')}>查看完整行程 <ArrowRight size={17}/></button><button onClick={() => setTab('map')}><Map size={17}/>路线地图</button></div></div>
       <div className="countdown"><span>SEP</span><strong>25</strong><small>周五出发</small></div>
     </section>
 
-    <div className="section-title"><div><span className="eyebrow">逐日计划</span><h2>沿途七日</h2></div><button onClick={() => setTab('trip')}>查看全部 <ArrowRight size={16}/></button></div>
+    <div className="section-title"><div><span className="eyebrow">逐日计划</span><h2>沿途十日</h2></div><button onClick={() => setTab('trip')}>查看全部 <ArrowRight size={16}/></button></div>
     <div className="day-strip">{tripDays.map(d => <button key={d.day} className={selectedDay === d.day ? 'active' : ''} onClick={() => setSelectedDay(d.day)}><span>D{d.day}</span><b>{d.shortDate}</b><small>{d.title.replace('成都','').slice(0,6)}</small></button>)}</div>
 
     <div className="dashboard-grid">
@@ -114,8 +114,8 @@ function HomeView({ selectedDay, setSelectedDay, setTab, openAuth, currentName, 
 }
 
 const weatherPlaces: Record<number, [number, number]> = {
-  1: [30.67, 104.07], 2: [30.67, 104.07], 3: [30.04, 101.49], 4: [30.88, 101.89],
-  5: [31.00, 102.84], 6: [30.99, 103.62], 7: [30.99, 103.62],
+  1: [30.67, 104.07], 2: [30.67, 104.07], 3: [31.00, 102.84], 4: [31.00, 102.84],
+  5: [30.04, 101.49], 6: [28.46, 100.34], 7: [28.46, 100.34], 8: [29.99, 100.27], 9: [30.05, 101.96], 10: [30.67, 104.07],
 }
 const weatherLabels: Record<number, string> = { 0:'晴',1:'晴间多云',2:'多云',3:'阴',45:'有雾',48:'雾凇',51:'小雨',53:'小雨',55:'中雨',61:'小雨',63:'中雨',65:'大雨',71:'小雪',73:'中雪',75:'大雪',80:'阵雨',81:'阵雨',82:'强阵雨',95:'雷雨' }
 
@@ -148,7 +148,7 @@ function setAssistantOpenViaEvent(){ document.querySelector<HTMLButtonElement>('
 function TripView({ selectedDay, setSelectedDay }: { selectedDay:number; setSelectedDay:(n:number)=>void }) {
   const day = tripDays[selectedDay-1]
   return <div className="page">
-    <PageHeading eyebrow="完整计划" title="七日行程" note="每一段路程、停靠和住宿，都集中在这里。" action={<button className="primary-button"><Plus size={17}/>添加安排</button>} />
+    <PageHeading eyebrow="完整计划" title="十日自驾" note="成都两日慢游，再用八天走完四姑娘山、稻城亚丁与木格措。" action={<button className="primary-button"><Plus size={17}/>添加安排</button>} />
     <div className="trip-layout"><div className="trip-days">{tripDays.map(d => <button key={d.day} className={selectedDay===d.day?'active':''} onClick={()=>setSelectedDay(d.day)}><span>D{d.day}</span><div><strong>{d.shortDate} · {d.weekday}</strong><small>{d.title}</small></div><ChevronRight size={18}/></button>)}</div>
       <section className="day-detail card"><div className="day-detail-head"><div><span className="eyebrow">DAY {day.day} · {day.shortDate} · {day.weekday}</span><h2>{day.title}</h2><p><MapPin size={15}/>{day.route}</p></div><span className={`risk ${day.risk}`}>{day.risk}</span></div>
         <div className="stats"><div><Route/><span>里程<b>{day.distance}</b></span></div><div><Navigation/><span>驾驶<b>{day.drive}</b></span></div><div><Home/><span>住宿<b>{day.stay}</b></span></div><div><CloudSun/><span>天气<b>{day.weather} {day.temperature}</b></span></div></div>
@@ -158,9 +158,9 @@ function TripView({ selectedDay, setSelectedDay }: { selectedDay:number; setSele
 }
 
 const mapStops = [
-  {name:'成都',region:'成都市'}, {name:'康定市',region:'甘孜藏族自治州'}, {name:'新都桥镇',region:'甘孜藏族自治州'},
-  {name:'塔公草原',region:'甘孜藏族自治州'}, {name:'墨石公园景区',region:'甘孜藏族自治州'}, {name:'丹巴县',region:'甘孜藏族自治州'},
-  {name:'四姑娘山双桥沟',region:'阿坝藏族羌族自治州'}, {name:'都江堰景区',region:'成都市'},
+  {name:'四姑娘山双桥沟',region:'阿坝藏族羌族自治州'}, {name:'猫鼻梁观景台',region:'阿坝藏族羌族自治州'}, {name:'丹巴县',region:'甘孜藏族自治州'},
+  {name:'墨石公园景区',region:'甘孜藏族自治州'}, {name:'新都桥镇',region:'甘孜藏族自治州'}, {name:'天路十八弯观景台',region:'甘孜藏族自治州'},
+  {name:'理塘县',region:'甘孜藏族自治州'}, {name:'稻城亚丁景区',region:'甘孜藏族自治州'}, {name:'康定情歌木格措景区',region:'甘孜藏族自治州'},
 ]
 function openMap(provider:'amap'|'baidu',name:string,region:string){
   const url=provider==='amap'
@@ -169,13 +169,13 @@ function openMap(provider:'amap'|'baidu',name:string,region:string){
   window.open(url,'_blank','noopener,noreferrer')
 }
 function downloadOfflineGuide(){
-  const text=`川西小环线离线地图准备清单\n\n高德/百度 App 内提前下载：\n- 成都全市\n- 甘孜州：康定、新都桥、塔公、八美、丹巴\n- 阿坝州：小金、四姑娘山、卧龙、映秀\n- 都江堰及周边\n\n关键目的地：\n${mapStops.map((x,i)=>`${i+1}. ${x.name}（${x.region}）`).join('\n')}\n\n提示：出发前更新离线数据；点击网页中的地图按钮后，先核对 POI，再开始导航。\n`
+  const text=`川西八日自驾离线地图准备清单\n\n高德/百度 App 内提前下载：\n- 成都、雅安、泸定\n- 阿坝州：映秀、卧龙、小金、四姑娘山\n- 甘孜州：丹巴、八美、新都桥、雅江、理塘、稻城、亚丁、康定\n\n关键目的地：\n${mapStops.map((x,i)=>`${i+1}. ${x.name}（${x.region}）`).join('\n')}\n\n提示：出发前更新离线数据；点击网页中的地图按钮后，先核对 POI，再开始导航。\n`
   const href=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));const a=document.createElement('a');a.href=href;a.download='川西离线地图准备清单.txt';a.click();URL.revokeObjectURL(href)
 }
 function MapView(){
-  return <div className="page"><PageHeading eyebrow="路线与离线导航" title="全程地图" note="1,058 公里环线 · 手机可唤起地图 App，桌面端自动打开网页版" action={<button className="primary-button" onClick={downloadOfflineGuide}><Download size={17}/>下载离线清单</button>} />
-    <section className="map-card"><div className="map-bg"><svg viewBox="0 0 900 480" preserveAspectRatio="none"><path d="M115,120 C210,80 220,330 340,300 S440,80 555,160 S720,350 790,260"/><circle cx="115" cy="120" r="8"/><circle cx="260" cy="265" r="8"/><circle cx="340" cy="300" r="8"/><circle cx="455" cy="125" r="8"/><circle cx="555" cy="160" r="8"/><circle cx="700" cy="320" r="8"/><circle cx="790" cy="260" r="8"/></svg>{['成都','新都桥','塔公','丹巴','四姑娘山','都江堰','成都'].map((x,i)=><span className={`map-label ml${i}`} key={i}>{i+1}<b>{x}</b></span>)}</div>
-      <div className="map-panel"><span className="eyebrow">离线准备</span><h3>这些区域需要提前下载</h3>{['成都全市','甘孜州 · 康定 / 新都桥','阿坝州 · 丹巴 / 小金','都江堰及周边'].map((x,i)=><label key={x}><span className="check done"><Check size={13}/></span><div><strong>{x}</strong><small>{[382,646,518,274][i]} MB</small></div></label>)}<p>地图数据需在高德/百度地图 App 内下载；本网站保存地点清单与紧急坐标。</p></div>
+  return <div className="page"><PageHeading eyebrow="路线与离线导航" title="全程地图" note="约 1,735 公里 · 手机可唤起地图 App，桌面端自动打开网页版" action={<button className="primary-button" onClick={downloadOfflineGuide}><Download size={17}/>下载离线清单</button>} />
+    <section className="map-card"><div className="map-bg"><svg viewBox="0 0 900 480" preserveAspectRatio="none"><path d="M115,120 C210,80 220,330 340,300 S440,80 555,160 S720,350 790,260"/><circle cx="115" cy="120" r="8"/><circle cx="260" cy="265" r="8"/><circle cx="340" cy="300" r="8"/><circle cx="455" cy="125" r="8"/><circle cx="555" cy="160" r="8"/><circle cx="700" cy="320" r="8"/><circle cx="790" cy="260" r="8"/></svg>{['四姑娘山','丹巴','墨石','新都桥','理塘','稻城亚丁','康定'].map((x,i)=><span className={`map-label ml${i}`} key={i}>{i+1}<b>{x}</b></span>)}</div>
+      <div className="map-panel"><span className="eyebrow">离线准备</span><h3>这些区域需要提前下载</h3>{['成都 · 雅安 · 泸定','阿坝州 · 卧龙 / 四姑娘山','甘孜北线 · 丹巴 / 新都桥','甘孜南线 · 理塘 / 稻城 / 亚丁'].map((x,i)=><label key={x}><span className="check done"><Check size={13}/></span><div><strong>{x}</strong><small>{[520,680,920,1280][i]} MB 预估</small></div></label>)}<p>地图数据需在高德/百度地图 App 内下载；本网站保存地点清单，实际包大小以地图 App 为准。</p></div>
     </section>
     <section className="map-destinations card"><div className="card-top"><div><span className="eyebrow">手机导航</span><h2>沿途目的地</h2></div><small>打开后请先核对地点，再开始导航</small></div><div className="destination-grid">{mapStops.map((stop,i)=><article key={stop.name}><span>{i+1}</span><div><strong>{stop.name}</strong><small>{stop.region}</small></div><button onClick={()=>openMap('amap',stop.name,stop.region)}>高德</button><button onClick={()=>openMap('baidu',stop.name,stop.region)}>百度</button></article>)}</div></section>
   </div>
@@ -199,16 +199,18 @@ function GalleryView({tripId,photos:cloudPhotos,cloud,memberCount,refresh,openAu
     {photos.length===0?<section className="empty-gallery"><div className="camera-orbit"><Camera size={38}/></div><h2>故事还没开始</h2><p>{cloud?'旅途中上传的原图会安全保存到旅程的私有空间，并向受邀同伴提供临时下载链接。':'登录并使用邀请码加入后，受邀同伴可以共同上传和下载原图；你也可以先在本机预览。'}</p><label className="outline-button file-button"><Camera size={17}/>上传第一张照片<input type="file" accept="image/*" onChange={e=>handleFiles(Array.from(e.target.files||[]))}/></label></section>:<div className="photo-grid">{photos.map((p,i)=><img key={i} src={p} alt={`旅途照片 ${i+1}`}/>)}</div>}
   </div> }
 
-function Assistant({onClose,tripId,authorized,openAuth}:{onClose:()=>void;tripId:string|null;authorized:boolean;openAuth:()=>void}){ const [messages,setMessages]=useState([{from:'ai',text:authorized?'我已经读过这趟 7 天游程，可以帮你检查天气、高反、堵车和预算。想先看哪一天？':'同行助手仅向这趟旅程的受邀成员开放。请先登录并使用邀请码加入。'}]); const [input,setInput]=useState(''); const [sending,setSending]=useState(false)
+function Assistant({onClose,tripId,authorized,openAuth}:{onClose:()=>void;tripId:string|null;authorized:boolean;openAuth:()=>void}){ const [messages,setMessages]=useState([{from:'ai',text:authorized?'我已经读过这趟 8 天游程，可以帮你检查天气、高反、堵车和预算。想先看哪一天？':'同行助手仅向这趟旅程的受邀成员开放。请先登录并使用邀请码加入。'}]); const [input,setInput]=useState(''); const [sending,setSending]=useState(false)
   const send=async()=>{if(!authorized||!tripId){openAuth();return}if(!input.trim()||sending)return;const q=input;setMessages(m=>[...m,{from:'me',text:q}]);setInput('');setSending(true);try{const answer=await askTripAgent(tripId,q);setMessages(m=>[...m,{from:'ai',text:answer}])}catch(e){setMessages(m=>[...m,{from:'ai',text:`服务暂时不可用：${e instanceof Error?e.message:'未知错误'}`}])}finally{setSending(false)}}
-  return <aside className="assistant"><div className="assistant-head"><div className="ai-icon"><Sparkles/></div><div><strong>同行助手</strong><small><i/> {authorized?'Luna 智能体已连接':'等待成员验证'}</small></div><button onClick={onClose}><X/></button></div><div className="assistant-context"><MapPin size={14}/>{authorized?'正在分析：川西小环线 · 7天':'未加入旅程，无法读取计划与账目'}</div><div className="messages">{messages.map((m,i)=><div className={`message ${m.from}`} key={i}>{m.text}</div>)}{sending&&<div className="message ai">正在结合行程和账目分析…</div>}</div><div className="quick-prompts"><button disabled={!authorized} onClick={()=>setInput('D3 天气不好时怎么改？')}>D3 天气不好怎么改？</button><button disabled={!authorized} onClick={()=>setInput('帮我检查高反风险')}>检查高反风险</button></div><div className="chat-input"><input disabled={!authorized} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} placeholder={authorized?'问路线、天气、预算…':'登录并加入后可提问'}/><button onClick={send}><ArrowRight/></button></div><small className="ai-note">{authorized?'模型只生成修改草案，不会自动覆盖团队行程。':'问答与云端行程只对受邀成员开放。'} {!authorized&&<button onClick={openAuth}>登录 / 输入邀请码</button>}</small></aside>
+  return <aside className="assistant"><div className="assistant-head"><div className="ai-icon"><Sparkles/></div><div><strong>同行助手</strong><small><i/> {authorized?'Luna 智能体已连接':'等待成员验证'}</small></div><button onClick={onClose}><X/></button></div><div className="assistant-context"><MapPin size={14}/>{authorized?'正在分析：川西环线 · 8天':'未加入旅程，无法读取计划与账目'}</div><div className="messages">{messages.map((m,i)=><div className={`message ${m.from}`} key={i}>{m.text}</div>)}{sending&&<div className="message ai">正在结合行程和账目分析…</div>}</div><div className="quick-prompts"><button disabled={!authorized} onClick={()=>setInput('D3 天气不好时怎么改？')}>D3 天气不好怎么改？</button><button disabled={!authorized} onClick={()=>setInput('帮我检查高反风险')}>检查高反风险</button></div><div className="chat-input"><input disabled={!authorized} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} placeholder={authorized?'问路线、天气、预算…':'登录并加入后可提问'}/><button onClick={send}><ArrowRight/></button></div><small className="ai-note">{authorized?'模型只生成修改草案，不会自动覆盖团队行程。':'问答与云端行程只对受邀成员开放。'} {!authorized&&<button onClick={openAuth}>登录 / 输入邀请码</button>}</small></aside>
 }
 
 function AuthModal({backend,onClose}:{backend:ReturnType<typeof useBackend>;onClose:()=>void}){
-  const [email,setEmail]=useState('');const [code,setCode]=useState('');const [name,setName]=useState('');const [notice,setNotice]=useState('');const [busy,setBusy]=useState(false)
+  const [email,setEmail]=useState('');const [code,setCode]=useState('');const [name,setName]=useState('');const [notice,setNotice]=useState('');const [busy,setBusy]=useState(false);const [codeSent,setCodeSent]=useState(false);const [otp,setOtp]=useState('')
   const run=async(task:()=>Promise<unknown>,success:string)=>{setBusy(true);setNotice('');try{await task();setNotice(success)}catch(e){setNotice(e instanceof Error?e.message:'操作失败')}finally{setBusy(false)}}
+  const sendCode=async()=>{setBusy(true);setNotice('');try{await signInWithEmail(email);setCodeSent(true);setNotice('验证码已发送，请查看邮箱。')}catch(e){setNotice(e instanceof Error?e.message:'发送失败')}finally{setBusy(false)}}
+  const verifyCode=async()=>{setBusy(true);setNotice('');try{await verifyEmailOtp(email,otp);setNotice('登录成功，正在同步旅程…')}catch(e){setNotice(e instanceof Error?e.message:'验证码错误或已过期')}finally{setBusy(false)}}
   return <div className="modal-backdrop" onClick={onClose}><section className="expense-modal auth-modal" onClick={e=>e.stopPropagation()}><button className="modal-close" onClick={onClose}><X/></button><span className="eyebrow">多人协作后端</span><h2>{backend.session?'账号与旅程':'登录同行'}</h2>
-    {!backend.configured?<div className="setup-hint"><strong>还差 Supabase 项目配置</strong><p>代码和数据库已经准备好。复制 <code>.env.example</code> 为 <code>.env.local</code>，填入项目 URL 与 anon key 后重新部署。</p></div>:backend.session?<><div className="signed-in"><Check size={18}/><div><strong>{backend.trip?`已加入 · ${backend.trip.name}`:'账号已登录，尚未加入旅程'}</strong><small>{backend.session.user.email}</small></div></div>{backend.trip?<div className="invite-code"><span>邀请同伴使用</span><strong>{backend.trip.invite_code}</strong><button onClick={()=>navigator.clipboard.writeText(backend.trip!.invite_code)}>复制</button></div>:<p className="join-required">这个账号还不是旅程成员。请输入管理员给你的邀请码；加入前无法使用智能问答、共享账本和云端图册。</p>}<label>{backend.trip?'加入另一趟旅程的邀请码':'旅程邀请码'}<input value={code} onChange={e=>setCode(e.target.value)} placeholder="例如 A1B2C3D4"/></label><label>你的称呼<input value={name} onChange={e=>setName(e.target.value)} placeholder="例如 小明"/></label><button className="primary-button" disabled={busy||!code||!name} onClick={()=>run(async()=>{const id=await joinTrip(code,name);localStorage.setItem('active-trip-id',id);window.location.reload()},'已经加入旅程')}>加入同伴的旅程</button><button className="outline-button auth-signout" onClick={()=>supabase?.auth.signOut()}>退出登录</button></>:<><p className="auth-copy">输入邮箱后，我们会发送一次性登录链接。首次创建旅程的账号会成为唯一管理员；其他账号必须凭邀请码加入。</p><label>邮箱<input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com"/></label><button className="primary-button" disabled={busy||!email} onClick={()=>run(()=>signInWithEmail(email),'登录链接已发送，请查收邮件。')}>{busy?'发送中…':'发送登录链接'}</button></>}
+    {!backend.configured?<div className="setup-hint"><strong>还差 Supabase 项目配置</strong><p>代码和数据库已经准备好。复制 <code>.env.example</code> 为 <code>.env.local</code>，填入项目 URL 与 anon key 后重新部署。</p></div>:backend.session?<><div className="signed-in"><Check size={18}/><div><strong>{backend.trip?`已加入 · ${backend.trip.name}`:'账号已登录，尚未加入旅程'}</strong><small>{backend.session.user.email}</small></div></div>{backend.trip?<div className="invite-code"><span>邀请同伴使用</span><strong>{backend.trip.invite_code}</strong><button onClick={()=>navigator.clipboard.writeText(backend.trip!.invite_code)}>复制</button></div>:<p className="join-required">这个账号还不是旅程成员。请输入管理员给你的邀请码；加入前无法使用智能问答、共享账本和云端图册。</p>}<label>{backend.trip?'加入另一趟旅程的邀请码':'旅程邀请码'}<input value={code} onChange={e=>setCode(e.target.value)} placeholder="例如 A1B2C3D4"/></label><label>你的称呼<input value={name} onChange={e=>setName(e.target.value)} placeholder="例如 小明"/></label><button className="primary-button" disabled={busy||!code||!name} onClick={()=>run(async()=>{const id=await joinTrip(code,name);localStorage.setItem('active-trip-id',id);window.location.reload()},'已经加入旅程')}>加入同伴的旅程</button><button className="outline-button auth-signout" onClick={()=>supabase?.auth.signOut()}>退出登录</button></>:codeSent?<><p className="auth-copy">验证码已发送到 <strong>{email}</strong>，请在当前页面完成登录。</p><label>邮箱验证码<input className="otp-input" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={otp} onChange={e=>setOtp(e.target.value.replace(/\D/g,''))} placeholder="输入邮件中的验证码"/></label><button className="primary-button" disabled={busy||otp.length<6} onClick={verifyCode}>{busy?'验证中…':'验证并登录'}</button><div className="otp-actions"><button onClick={sendCode} disabled={busy}>重新发送</button><button onClick={()=>{setCodeSent(false);setOtp('');setNotice('')}}>更换邮箱</button></div></>:<><p className="auth-copy">输入邮箱获取一次性验证码。登录成功后会记住当前账号，下次打开可直接同步。</p><label>邮箱<input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com"/></label><button className="primary-button" disabled={busy||!email} onClick={sendCode}>{busy?'发送中…':'获取邮箱验证码'}</button></>}
     {notice&&<p className="form-notice">{notice}</p>}{backend.error&&<p className="form-notice error">{backend.error}</p>}
   </section></div>
 }

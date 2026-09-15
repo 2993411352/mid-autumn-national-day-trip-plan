@@ -35,24 +35,35 @@ npx supabase secrets set OPENAI_API_KEY=你的密钥 OPENAI_MODEL=gpt-5
 
 OpenAI API Key 只能作为 Edge Function secret，不能使用 `VITE_` 前缀，也不能提交到仓库。
 
-4. 在 Supabase `Authentication → URL Configuration` 设置：
+4. 在 Supabase `Authentication → Email Templates`（新版可能显示为 `Authentication → Emails → Templates`）中分别打开 **Confirm signup** 和 **Magic link or OTP / Magic Link / 登录链接 / 魔法链接**，把正文中的登录链接替换为验证码，例如：
+
+```html
+<h2>同行登录验证码</h2>
+<p>你的验证码是：</p>
+<p style="font-size:28px;font-weight:700;letter-spacing:6px">{{ .Token }}</p>
+<p>验证码即将过期，请勿转发给他人。</p>
+```
+
+必须使用 `{{ .Token }}`，否则 Supabase 仍会发送点击登录链接。若你的新项目是免费套餐且仍使用 Supabase 默认邮件服务，模板编辑入口可能被限制；这时先在 `Project Settings → Authentication → SMTP Settings` 配置 Resend、Postmark、SendGrid 或 SES 等自有 SMTP，再回到模板页设置。Supabase 默认邮件服务只适合测试。
+
+5. 在 Supabase `Authentication → URL Configuration` 设置：
 
 - Site URL：`https://2993411352.github.io/mid-autumn-national-day-trip-plan/`
 - Redirect URL：同上
 
-5. 在 GitHub 仓库 `Settings → Secrets and variables → Actions → New repository secret` 创建：
+6. 在 GitHub 仓库 `Settings → Secrets and variables → Actions → New repository secret` 创建：
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 
 这两个是浏览器端公开配置；安全性由数据库 RLS 控制。不要在这里放 service role key。
 
-6. 重新运行 `Deploy to GitHub Pages` workflow。
+7. 重新运行 `Deploy to GitHub Pages` workflow。
 
 ## 已实现的数据边界
 
-- 每个用户通过邮箱一次性链接登录。
-- 首次登录自动创建一趟川西旅程及七天基础行程。
+- 每个用户通过邮箱一次性验证码登录，登录后的会话保存在当前浏览器。
+- 首次登录自动创建一趟川西旅程及八天基础行程。
 - 同伴使用邀请码加入，所有表均开启 RLS。
 - 账目仅旅程成员可读；普通成员只能修改或删除自己录入的账目。
 - 图册文件存放在私有 bucket，通过一小时有效的签名地址查看。

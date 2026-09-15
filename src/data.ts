@@ -6,32 +6,21 @@ export type DayPlan = {
 }
 
 export const tripDays: DayPlan[] = [
-  { day: 1, date: '2026-09-25', shortDate: '09.25', weekday: '周五', title: '成都城市慢游', route: '人民公园 → 宽窄巷子 → 奎星楼街 → 九眼桥', distance: '18 km', drive: '市内通勤', stay: '成都 · 春熙路', altitude: '500 m', weather: '多云', temperature: '19–26°', risk: '舒适', stops: [
-    { time: '09:30', title: '人民公园 · 鹤鸣茶社', note: '喝盖碗茶，避开中午客流' }, { time: '12:00', title: '奎星楼街午饭', note: '冒椒火辣 / 成都吃客' }, { time: '14:00', title: '宽窄巷子', note: '拍照与散步，建议 1.5 小时' }, { time: '20:30', title: '九眼桥夜景' }
-  ]},
-  { day: 2, date: '2026-09-26', shortDate: '09.26', weekday: '周六', title: '成都经典打卡', route: '熊猫基地 → 武侯祠 / 锦里 → 太古里', distance: '46 km', drive: '约 2 小时', stay: '成都 · 原酒店', altitude: '500 m', weather: '阵雨', temperature: '18–24°', risk: '留意', stops: [
-    { time: '07:30', title: '出发去熊猫基地', note: '提前预约，尽量早进' }, { time: '11:30', title: '武侯祠附近午饭' }, { time: '13:00', title: '武侯祠 + 锦里' }, { time: '17:00', title: '春熙路太古里' }, { time: '20:00', title: '成都火锅' }
-  ]},
-  { day: 3, date: '2026-09-27', shortDate: '09.27', weekday: '周日', title: '翻越折多山', route: '成都 → 雅安 → 泸定 → 康定 → 新都桥', distance: '430 km', drive: '8–9 小时', stay: '新都桥 · 供氧酒店', altitude: '3,460 m', weather: '小雨转晴', temperature: '5–16°', risk: '谨慎', stops: [
-    { time: '07:30', title: '成都出发' }, { time: '12:00', title: '康定午饭' }, { time: '14:00', title: '康定补满油', note: '进入高海拔前最后检查' }, { time: '16:30', title: '折多山垭口短停', note: '不跑跳，不久留' }, { time: '18:30', title: '抵达新都桥' }
-  ]},
-  { day: 4, date: '2026-09-28', shortDate: '09.28', weekday: '周一', title: '草原与异星峡谷', route: '新都桥 → 塔公 → 墨石公园 → 丹巴', distance: '220 km', drive: '5–6 小时', stay: '丹巴县城', altitude: '1,900 m', weather: '晴间多云', temperature: '8–19°', risk: '舒适', stops: [
-    { time: '08:30', title: '新都桥出发' }, { time: '10:00', title: '塔公草原' }, { time: '12:00', title: '塔公 / 八美午饭' }, { time: '13:30', title: '墨石公园' }, { time: '16:00', title: '八美视油量补油' }, { time: '18:30', title: '抵达丹巴' }
-  ]},
-  { day: 5, date: '2026-09-29', shortDate: '09.29', weekday: '周二', title: '深入双桥沟', route: '丹巴 → 四姑娘山双桥沟 → 日隆镇', distance: '140 km', drive: '4–5 小时', stay: '日隆镇', altitude: '3,160 m', weather: '多云', temperature: '4–15°', risk: '留意', stops: [
-    { time: '08:30', title: '丹巴出发' }, { time: '11:30', title: '四姑娘山镇午饭' }, { time: '13:00', title: '双桥沟', note: '门票 + 观光车，带保温水' }, { time: '17:30', title: '离开景区' }, { time: '18:00', title: '日隆镇入住' }
-  ]},
-  { day: 6, date: '2026-09-30', shortDate: '09.30', weekday: '周三', title: '沿熊猫走廊下山', route: '日隆 → 卧龙 → 映秀 → 都江堰', distance: '180 km', drive: '4–5 小时', stay: '都江堰', altitude: '700 m', weather: '小雨', temperature: '16–22°', risk: '留意', stops: [
-    { time: '09:00', title: '日隆镇出发' }, { time: '12:00', title: '映秀午饭' }, { time: '14:00', title: '映秀 / 都江堰补油' }, { time: '16:00', title: '抵达都江堰' }, { time: '19:00', title: '灌县古城晚饭' }
-  ]},
-  { day: 7, date: '2026-10-01', shortDate: '10.01', weekday: '周四', title: '山水收尾，返回成都', route: '都江堰 / 青城山 → 成都', distance: '70 km', drive: '1.5–2 小时', stay: '旅程结束', altitude: '500–1,260 m', weather: '阴', temperature: '17–23°', risk: '舒适', stops: [
-    { time: '08:30', title: '酒店出发' }, { time: '09:00', title: '都江堰或青城山', note: '根据体力二选一' }, { time: '13:00', title: '午饭后返蓉' }, { time: '15:30', title: '抵达成都' }
-  ]}
+  { day: 1, date: '2026-09-25', shortDate: '09.25', weekday: '周五', title: '成都城市慢游', route: '人民公园 → 宽窄巷子 → 奎星楼街 → 九眼桥', distance: '市内约 25 km', drive: '市内交通', stay: '成都（春熙路/太古里）', altitude: '500 m', weather: '多云', temperature: '18–27°', risk: '舒适', stops: [{ time: '09:30', title: '人民公园喝茶' }, { time: '11:30', title: '宽窄巷子慢逛' }, { time: '13:00', title: '午餐：川菜或小吃' }, { time: '15:00', title: '奎星楼街' }, { time: '19:00', title: '九眼桥夜景' }]},
+  { day: 2, date: '2026-09-26', shortDate: '09.26', weekday: '周六', title: '成都经典打卡', route: '熊猫基地 → 武侯祠 / 锦里 → 太古里', distance: '市内约 35 km', drive: '市内交通', stay: '成都（春熙路/太古里）', altitude: '500 m', weather: '阵雨', temperature: '18–26°', risk: '舒适', stops: [{ time: '07:30', title: '熊猫基地入园', note: '节假日提前预约' }, { time: '12:00', title: '基地周边午饭' }, { time: '14:30', title: '武侯祠与锦里' }, { time: '18:30', title: '太古里晚餐' }]},
+  { day: 3, date: '2026-09-27', shortDate: '09.27', weekday: '周日', title: '进山适应海拔', route: '成都 → 映秀 → 卧龙 → 猫鼻梁 → 四姑娘山镇', distance: '约 175 km', drive: '约 4 小时', stay: '四姑娘山镇', altitude: '500–3,160 m', weather: '多云', temperature: '8–20°', risk: '留意', stops: [{ time: '08:00', title: '成都出发', note: '加满油并确认 G350 当日路况' }, { time: '10:00', title: '映秀休息' }, { time: '12:00', title: '卧龙午饭' }, { time: '15:00', title: '猫鼻梁观景台' }, { time: '16:00', title: '四姑娘山镇入住', note: '第一晚只适应海拔' }]},
+  { day: 4, date: '2026-09-28', shortDate: '09.28', weekday: '周一', title: '双桥沟完整一日', route: '四姑娘山镇 → 双桥沟 → 四姑娘山镇', distance: '约 20 km', drive: '景区接驳', stay: '四姑娘山镇', altitude: '3,160–3,800 m', weather: '阵雨', temperature: '4–15°', risk: '留意', stops: [{ time: '07:30', title: '前往游客中心' }, { time: '08:00', title: '双桥沟入园', note: '先乘观光车到红杉林' }, { time: '10:00', title: '布达拉峰 / 四姑娜措' }, { time: '14:00', title: '撵鱼坝短步行' }, { time: '17:00', title: '出沟休息' }]},
+  { day: 5, date: '2026-09-29', shortDate: '09.29', weekday: '周二', title: '丹巴藏寨与墨石', route: '四姑娘山镇 → 小金 → 丹巴 → 墨石公园 → 八美 → 新都桥', distance: '约 330 km', drive: '约 7 小时', stay: '新都桥 · 供氧酒店', altitude: '1,900–3,630 m', weather: '小雨转晴', temperature: '5–17°', risk: '谨慎', stops: [{ time: '07:00', title: '四姑娘山镇出发' }, { time: '10:00', title: '丹巴短停与午饭' }, { time: '13:30', title: '墨石公园', note: '游览约 2 小时' }, { time: '16:00', title: '八美补油' }, { time: '18:30', title: '新都桥入住' }]},
+  { day: 6, date: '2026-09-30', shortDate: '09.30', weekday: '周三', title: '穿越天路到亚丁', route: '新都桥 → 雅江 → 天路十八弯 → 卡子拉山 → 理塘 → 稻城 → 香格里拉镇', distance: '约 420 km', drive: '约 8–9 小时', stay: '香格里拉镇', altitude: '2,900–4,718 m', weather: '晴间多云', temperature: '2–16°', risk: '谨慎', stops: [{ time: '06:30', title: '新都桥出发', note: '纯转场日，早餐打包' }, { time: '09:00', title: '天路十八弯短停' }, { time: '11:30', title: '理塘午饭并补油' }, { time: '17:30', title: '抵达香格里拉镇', note: '不赶夜路' }]},
+  { day: 7, date: '2026-10-01', shortDate: '10.01', weekday: '周四', title: '稻城亚丁全日游', route: '香格里拉镇 → 亚丁游客中心 → 扎灌崩 → 洛绒牛场 → 香格里拉镇', distance: '景区交通', drive: '观光车 + 徒步', stay: '香格里拉镇', altitude: '2,900–4,700 m', weather: '多云', temperature: '0–14°', risk: '谨慎', stops: [{ time: '06:30', title: '前往亚丁游客中心' }, { time: '07:00', title: '乘观光车进景区' }, { time: '09:00', title: '冲古寺 / 珍珠海', note: '长短线按身体状态决定' }, { time: '15:00', title: '开始返程', note: '出现高反症状立即下撤' }, { time: '18:30', title: '返回香格里拉镇' }]},
+  { day: 8, date: '2026-10-02', shortDate: '10.02', weekday: '周五', title: '回到天空之城', route: '香格里拉镇 → 稻城 → 海子山 → 理塘', distance: '约 230 km', drive: '约 4–5 小时', stay: '理塘县城', altitude: '4,014 m', weather: '晴', temperature: '1–15°', risk: '留意', stops: [{ time: '09:00', title: '香格里拉镇出发' }, { time: '11:00', title: '稻城红草地短停' }, { time: '13:00', title: '海子山观景休息' }, { time: '16:00', title: '理塘入住' }]},
+  { day: 9, date: '2026-10-03', shortDate: '10.03', weekday: '周六', title: '翻越折多山到康定', route: '理塘 → 雅江 → 新都桥 → 折多山 → 康定', distance: '约 280 km', drive: '约 6 小时', stay: '康定市区', altitude: '2,560–4,298 m', weather: '阴', temperature: '4–17°', risk: '谨慎', stops: [{ time: '08:00', title: '理塘出发' }, { time: '11:30', title: '雅江午饭' }, { time: '14:30', title: '新都桥休息' }, { time: '16:00', title: '折多山视天气短停' }, { time: '18:00', title: '康定入住' }]},
+  { day: 10, date: '2026-10-04', shortDate: '10.04', weekday: '周日', title: '木格措收尾返成都', route: '康定 → 木格措 → 泸定 → 雅安 → 成都', distance: '约 300 km', drive: '约 5 小时', stay: '旅程结束', altitude: '500–3,780 m', weather: '多云', temperature: '7–21°', risk: '留意', stops: [{ time: '07:30', title: '康定前往木格措' }, { time: '08:30', title: '木格措半日游', note: '最晚 13:00 离开' }, { time: '13:00', title: '启程返回成都' }, { time: '15:30', title: '雅安服务区休息' }, { time: '18:30', title: '抵达成都', note: '拥堵时木格措改为可取消项' }]}
 ]
 
 export const guides = [
-  { tag: '必吃', title: '奎星楼街小吃路线', place: '成都', meta: '步行 1.2 km · 6 家店', emoji: '🌶️', color: '#d95d39' },
+  { tag: '路线', title: '亚丁长短线选择', place: '稻城亚丁', meta: '身体状态优先 · 15:00 返程', emoji: '🏔️', color: '#d95d39' },
   { tag: '观景', title: '新都桥日落机位', place: '新都桥', meta: '日落前 50 分钟抵达', emoji: '🏔️', color: '#52796f' },
   { tag: '避坑', title: '折多山停车与高反', place: '康定', meta: '停留不超过 30 分钟', emoji: '🫁', color: '#536b92' },
-  { tag: '酒店', title: '高海拔住宿检查表', place: '新都桥', meta: '供氧 · 热水 · 电热毯', emoji: '🛏️', color: '#9a6b4a' },
+  { tag: '新增', title: '木格措半日游顺序', place: '康定', meta: '观光车上行 · 逐站下行', emoji: '🏞️', color: '#9a6b4a' },
 ]
