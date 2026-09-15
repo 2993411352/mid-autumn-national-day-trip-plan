@@ -18,6 +18,7 @@ export type CloudExpense = {
 }
 
 export type CloudPhoto = { id: string; object_path: string; caption: string | null; signedUrl?: string }
+export type CloudTrip = { id: string; name: string; invite_code: string }
 
 export async function signInWithEmail(email: string) {
   if (!supabase) throw new Error('请先配置 Supabase 环境变量')
@@ -44,6 +45,13 @@ export async function getExpenses(tripId: string) {
   const { data, error } = await supabase.from('expenses').select('id,title,category,payer_name,amount,expense_date').eq('trip_id', tripId).order('created_at', { ascending: false })
   if (error) throw error
   return (data || []) as CloudExpense[]
+}
+
+export async function getTrip(tripId: string) {
+  if (!supabase) return null
+  const { data, error } = await supabase.from('trips').select('id,name,invite_code').eq('id', tripId).maybeSingle()
+  if (error) throw error
+  return data as CloudTrip | null
 }
 
 export async function createExpense(tripId: string, expense: { title: string; category: string; payer: string; amount: number }) {
