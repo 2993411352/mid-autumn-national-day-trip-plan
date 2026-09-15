@@ -11,7 +11,7 @@ create table public.trips (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   slug text not null unique,
-  invite_code text not null unique default upper(substr(encode(gen_random_bytes(6), 'hex'), 1, 8)),
+  invite_code text not null unique default upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)),
   starts_on date not null,
   ends_on date not null,
   created_by uuid not null references auth.users(id),
