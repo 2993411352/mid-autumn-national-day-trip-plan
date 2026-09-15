@@ -23,8 +23,16 @@ export type CloudMember = { user_id: string; display_name: string | null; role: 
 
 export async function signInWithEmail(email: string) {
   if (!supabase) throw new Error('请先配置 Supabase 环境变量')
-  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin + import.meta.env.BASE_URL } })
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } })
   if (error) throw error
+}
+
+export async function verifyEmailOtp(email: string, token: string) {
+  if (!supabase) throw new Error('请先配置 Supabase 环境变量')
+  const { data, error } = await supabase.auth.verifyOtp({ email, token: token.trim(), type: 'email' })
+  if (error) throw error
+  if (!data.session) throw new Error('验证码验证失败，请重新获取')
+  return data.session
 }
 
 export async function ensureTrip() {

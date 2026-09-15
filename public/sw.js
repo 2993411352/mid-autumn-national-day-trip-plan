@@ -1,4 +1,4 @@
-const CACHE = 'tongxing-v1'
+const CACHE = 'tongxing-v2'
 const APP_ROOT = '/mid-autumn-national-day-trip-plan/'
 
 self.addEventListener('install', event => {
