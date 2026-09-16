@@ -1,5 +1,5 @@
-const CACHE = 'tongxing-v2'
-const APP_ROOT = '/mid-autumn-national-day-trip-plan/'
+const CACHE = 'tongxing-v3'
+const APP_ROOT = new URL('./', self.registration.scope).href
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll([APP_ROOT, `${APP_ROOT}manifest.webmanifest`])).then(() => self.skipWaiting()))
