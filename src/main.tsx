@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ArrowRight, CalendarDays, Camera, Check, ChevronRight, CircleDollarSign, CloudSun, Compass, Download, Fuel, Home, Map, MapPin, Menu, MessageCircle, Navigation, Plus, Route, Search, Settings, Sparkles, Users, Utensils, WalletCards, X } from 'lucide-react'
+import { ArrowRight, CalendarDays, Camera, Check, ChevronRight, CircleDollarSign, CloudSun, Compass, Download, ExternalLink, Fuel, Home, Link, LocateFixed, Map, MapPin, Menu, MessageCircle, Navigation, Plus, Route, Search, Settings, Sparkles, Users, Utensils, WalletCards, X } from 'lucide-react'
+import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
 import { guides, tripDays, type DayPlan } from './data'
-import { askTripAgent, createExpense, joinTrip, signInWithEmail, supabase, updateMemberName, uploadPhoto, verifyEmailOtp, type CloudPhoto } from './lib/backend'
+import { askTripAgent, createExpense, createGuideLink, createNote, joinTrip, signInWithEmail, supabase, updateMemberName, uploadPhoto, verifyEmailOtp, type CloudNote, type CloudPhoto, type GuideLink } from './lib/backend'
 import { useBackend } from './hooks/useBackend'
 import './styles.css'
+import 'leaflet/dist/leaflet.css'
 
 type Tab = 'home' | 'trip' | 'map' | 'expense' | 'gallery'
 type Expense = { id: string | number; title: string; category: string; payer: string; amount: number; date: string }
@@ -63,8 +65,8 @@ function App() {
 
     <main>
       <header className="topbar"><button className="menu-button" onClick={() => setMenuOpen(true)}><Menu/></button><div className="mobile-brand">同行 · 川西</div><div className="top-actions"><button className="search"><Search size={18}/>搜索行程、地点和攻略</button><div className="weather-pill"><CloudSun size={18}/><span>成都</span><b>{todayWeather}</b></div><button className="crew" onClick={()=>setAuthOpen(true)}><Users size={18}/><span>{backend.trip ? `${memberCount} 位同行人` : backend.session ? '使用邀请码加入' : '登录同步'}</span></button></div></header>
-      {tab === 'home' && <HomeView selectedDay={selectedDay} setSelectedDay={setSelectedDay} setTab={setTab} openAuth={()=>setAuthOpen(true)} currentName={currentName} memberCount={memberCount} connected={Boolean(backend.trip)} />}
-      {tab === 'trip' && <TripView selectedDay={selectedDay} setSelectedDay={setSelectedDay} />}
+      {tab === 'home' && <HomeView selectedDay={selectedDay} setSelectedDay={setSelectedDay} setTab={setTab} openAuth={()=>setAuthOpen(true)} currentName={currentName} memberCount={memberCount} connected={Boolean(backend.trip)} tripId={backend.tripId} notes={backend.notes} guideLinks={backend.guideLinks} refresh={backend.refresh} />}
+      {tab === 'trip' && <TripView selectedDay={selectedDay} setSelectedDay={setSelectedDay} tripId={backend.tripId} notes={backend.notes} refresh={backend.refresh} />}
       {tab === 'map' && <MapView />}
       {tab === 'expense' && <ExpenseView expenses={expenses} onAdd={addExpense} cloud={Boolean(backend.trip)} memberNames={memberNames.length ? memberNames : ['我']} />}
       {tab === 'gallery' && <GalleryView tripId={backend.tripId} photos={backend.photos} cloud={Boolean(backend.trip)} memberCount={memberCount || 1} refresh={backend.refresh} openAuth={()=>setAuthOpen(true)} />}
@@ -82,14 +84,14 @@ function PageHeading({ eyebrow, title, note, action }: { eyebrow: string; title:
   return <div className="page-heading"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{note}</p></div>{action}</div>
 }
 
-function HomeView({ selectedDay, setSelectedDay, setTab, openAuth, currentName, memberCount, connected }: { selectedDay: number; setSelectedDay: (n:number)=>void; setTab:(t:Tab)=>void; openAuth:()=>void; currentName:string; memberCount:number; connected:boolean }) {
+function HomeView({ selectedDay, setSelectedDay, setTab, openAuth, currentName, memberCount, connected, tripId, notes, guideLinks, refresh }: { selectedDay: number; setSelectedDay: (n:number)=>void; setTab:(t:Tab)=>void; openAuth:()=>void; currentName:string; memberCount:number; connected:boolean; tripId:string|null; notes:CloudNote[]; guideLinks:GuideLink[]; refresh:()=>Promise<void> }) {
   const day = tripDays[selectedDay - 1]
   const liveWeather = useTripWeather(day)
   return <div className="page home-page">
     <PageHeading eyebrow={new Intl.DateTimeFormat('zh-CN', { month:'long', day:'numeric', weekday:'long' }).format(new Date())} title={`晚上好，${currentName}`} note={`${daysToTrip()} · ${connected ? `${memberCount} 位同行人的` : '我的'}川西小环线`} action={<button className="outline-button" onClick={openAuth}><Users size={17}/>{connected?'邀请同伴':'登录同步'}</button>} />
     <section className="hero-card">
       <div className="hero-art"><div className="sun"/><div className="mountain m1"/><div className="mountain m2"/><div className="road"/><div className="route-pin p1"/><div className="route-pin p2"/></div>
-      <div className="hero-copy"><span className="status-chip"><i/> 行程准备中</span><h2>从四姑娘山，驶向<br/><em>稻城亚丁</em></h2><p>8 天 · 约 1,735 公里 · {memberCount || 1} 位同行人</p><div className="hero-actions"><button onClick={() => setTab('trip')}>查看完整行程 <ArrowRight size={17}/></button><button onClick={() => setTab('map')}><Map size={17}/>路线地图</button></div></div>
+      <div className="hero-copy"><span className="status-chip"><i/> 行程准备中</span><h2>从成都出发，驶向<br/><em>稻城亚丁</em></h2><p>10 天 · 约 1,800 公里 · {memberCount || 1} 位同行人</p><div className="hero-actions"><button onClick={() => setTab('trip')}>查看完整行程 <ArrowRight size={17}/></button><button onClick={() => setTab('map')}><Map size={17}/>路线地图</button></div></div>
       <div className="countdown"><span>SEP</span><strong>25</strong><small>周五出发</small></div>
     </section>
 
@@ -100,7 +102,7 @@ function HomeView({ selectedDay, setSelectedDay, setTab, openAuth, currentName, 
       <section className="today-plan card">
         <div className="card-top"><div><span className="eyebrow">DAY {day.day} · {day.shortDate}</span><h2>{day.title}</h2></div><span className={`risk ${day.risk}`}>{day.risk}</span></div>
         <div className="route-line"><Route size={18}/>{day.route}</div>
-        <div className="timeline">{day.stops.slice(0,4).map((stop, i) => <div className="timeline-item" key={stop.time}><time>{stop.time}</time><div className={`dot ${i===0?'now':''}`}>{i===0?<Navigation size={12}/>:null}</div><div><strong>{stop.title}</strong>{stop.note && <small>{stop.note}</small>}</div></div>)}</div>
+        <div className="timeline">{day.stops.slice(0,4).map((stop, i) => <div className="timeline-item" key={stop.time}><time>{stop.time}</time><div className={`dot ${i===0?'now':''}`}>{i===0?<Navigation size={12}/>:null}</div><div><strong>{stop.title}</strong>{stop.note && <small>{stop.note}</small>}<StopNotes tripId={tripId} dayNumber={day.day} stop={stop} notes={notes} refresh={refresh} compact /></div></div>)}</div>
         <button className="full-button" onClick={() => setTab('trip')}>查看当天详情 <ChevronRight size={17}/></button>
       </section>
       <div className="side-cards">
@@ -109,9 +111,23 @@ function HomeView({ selectedDay, setSelectedDay, setTab, openAuth, currentName, 
       </div>
     </div>
 
-    <div className="section-title guides-heading"><div><span className="eyebrow">旅途灵感</span><h2>收藏的攻略</h2></div><button>攻略库 <ArrowRight size={16}/></button></div>
-    <div className="guide-grid">{guides.map(g => <article key={g.title} className="guide-card"><div className="guide-visual" style={{backgroundColor:g.color}}><span>{g.emoji}</span><em>{g.tag}</em></div><div><small><MapPin size={13}/>{g.place}</small><h3>{g.title}</h3><p>{g.meta}</p></div></article>)}</div>
+    <GuideLibrary tripId={tripId} links={guideLinks} refresh={refresh} openAuth={openAuth} />
   </div>
+}
+
+function StopNotes({tripId,dayNumber,stop,notes,refresh,compact=false}:{tripId:string|null;dayNumber:number;stop:{time:string;title:string};notes:CloudNote[];refresh:()=>Promise<void>;compact?:boolean}){
+  const [editing,setEditing]=useState(false);const [body,setBody]=useState('');const [saving,setSaving]=useState(false)
+  const rows=notes.filter(n=>n.day_number===dayNumber&&n.stop_time===stop.time)
+  const save=async()=>{if(!tripId){alert('请先登录并加入旅程后再添加共享备注');return}if(!body.trim())return;setSaving(true);try{await createNote(tripId,dayNumber,stop.time,stop.title,body);setBody('');setEditing(false);await refresh()}finally{setSaving(false)}}
+  return <div className={`stop-notes ${compact?'compact':''}`}>{rows.map(n=><p key={n.id}>📝 {n.body}</p>)}{editing?<div className="note-editor"><input autoFocus value={body} onChange={e=>setBody(e.target.value)} placeholder="停车、门票、集合点等…"/><button onClick={save} disabled={saving}>{saving?'保存中':'保存'}</button><button onClick={()=>setEditing(false)}>取消</button></div>:<button className="add-note" onClick={()=>setEditing(true)}>添加备注</button>}</div>
+}
+
+function GuideLibrary({tripId,links,refresh,openAuth}:{tripId:string|null;links:GuideLink[];refresh:()=>Promise<void>;openAuth:()=>void}){
+  const [open,setOpen]=useState(false);const [saving,setSaving]=useState(false);const [error,setError]=useState('')
+  const submit=async(e:React.FormEvent<HTMLFormElement>)=>{e.preventDefault();if(!tripId){openAuth();return}const f=new FormData(e.currentTarget);setSaving(true);setError('');try{await createGuideLink(tripId,{title:String(f.get('title')),url:String(f.get('url')),note:String(f.get('note')),platform:String(f.get('platform'))});await refresh();setOpen(false)}catch(err){setError(err instanceof Error?err.message:'保存失败')}finally{setSaving(false)}}
+  return <><div className="section-title guides-heading"><div><span className="eyebrow">旅途灵感</span><h2>攻略链接库</h2></div><button onClick={()=>tripId?setOpen(true):openAuth()}><Plus size={15}/>添加链接</button></div>
+    <div className="guide-grid">{links.map(link=><a key={link.id} className="guide-card saved-guide" href={link.url} target="_blank" rel="noreferrer"><div className="guide-visual link-visual"><span>{link.platform==='小红书'?'📕':link.platform==='抖音'?'🎵':'🔗'}</span><em>{link.platform}</em></div><div><small><Link size={13}/>点击打开原文</small><h3>{link.title}</h3><p>{link.note||'未添加备注'}</p><ExternalLink size={14}/></div></a>)}{guides.map(g => <article key={g.title} className="guide-card"><div className="guide-visual" style={{backgroundColor:g.color}}><span>{g.emoji}</span><em>{g.tag}</em></div><div><small><MapPin size={13}/>{g.place}</small><h3>{g.title}</h3><p>{g.meta}</p></div></article>)}</div>
+    {open&&<div className="modal-backdrop" onClick={()=>setOpen(false)}><form className="expense-modal" onSubmit={submit} onClick={e=>e.stopPropagation()}><button type="button" className="modal-close" onClick={()=>setOpen(false)}><X/></button><span className="eyebrow">共享攻略库</span><h2>收藏一个攻略</h2><label>平台<select name="platform"><option>小红书</option><option>抖音</option><option>微信公众号</option><option>网页</option></select></label><label>标题<input required name="title" placeholder="例如：亚丁长线避坑攻略"/></label><label>链接<input required name="url" type="url" placeholder="粘贴 https:// 开头的分享链接"/></label><label>备注<textarea name="note" placeholder="停车点、推荐菜、需要提前预约…"/></label>{error&&<p className="form-notice error">{error}</p>}<button className="primary-button" disabled={saving}>{saving?'保存中…':'保存到攻略库'}</button></form></div>}</>
 }
 
 const weatherPlaces: Record<number, [number, number]> = {
@@ -146,22 +162,28 @@ function useTripWeather(day: DayPlan) {
 
 function setAssistantOpenViaEvent(){ document.querySelector<HTMLButtonElement>('.ai-fab')?.click() }
 
-function TripView({ selectedDay, setSelectedDay }: { selectedDay:number; setSelectedDay:(n:number)=>void }) {
+function TripView({ selectedDay, setSelectedDay, tripId, notes, refresh }: { selectedDay:number; setSelectedDay:(n:number)=>void; tripId:string|null; notes:CloudNote[]; refresh:()=>Promise<void> }) {
   const day = tripDays[selectedDay-1]
   return <div className="page">
     <PageHeading eyebrow="完整计划" title="十日自驾" note="成都两日慢游，再用八天走完四姑娘山、稻城亚丁与木格措。" action={<button className="primary-button"><Plus size={17}/>添加安排</button>} />
     <div className="trip-layout"><div className="trip-days">{tripDays.map(d => <button key={d.day} className={selectedDay===d.day?'active':''} onClick={()=>setSelectedDay(d.day)}><span>D{d.day}</span><div><strong>{d.shortDate} · {d.weekday}</strong><small>{d.title}</small></div><ChevronRight size={18}/></button>)}</div>
       <section className="day-detail card"><div className="day-detail-head"><div><span className="eyebrow">DAY {day.day} · {day.shortDate} · {day.weekday}</span><h2>{day.title}</h2><p><MapPin size={15}/>{day.route}</p></div><span className={`risk ${day.risk}`}>{day.risk}</span></div>
         <div className="stats"><div><Route/><span>里程<b>{day.distance}</b></span></div><div><Navigation/><span>驾驶<b>{day.drive}</b></span></div><div><Home/><span>住宿<b>{day.stay}</b></span></div><div><CloudSun/><span>天气<b>{day.weather} {day.temperature}</b></span></div></div>
-        <div className="detail-timeline">{day.stops.map((s,i)=><div key={s.time}><time>{s.time}</time><span className="detail-dot">{i+1}</span><article><strong>{s.title}</strong>{s.note&&<p>{s.note}</p>}<button>添加备注</button></article></div>)}</div>
+        <div className="detail-timeline">{day.stops.map((s,i)=><div key={s.time}><time>{s.time}</time><span className="detail-dot">{i+1}</span><article><strong>{s.title}</strong>{s.note&&<p>{s.note}</p>}<StopNotes tripId={tripId} dayNumber={day.day} stop={s} notes={notes} refresh={refresh}/></article></div>)}</div>
       </section></div>
   </div>
 }
 
 const mapStops = [
-  {name:'四姑娘山双桥沟',region:'阿坝藏族羌族自治州'}, {name:'猫鼻梁观景台',region:'阿坝藏族羌族自治州'}, {name:'丹巴县',region:'甘孜藏族自治州'},
-  {name:'墨石公园景区',region:'甘孜藏族自治州'}, {name:'新都桥镇',region:'甘孜藏族自治州'}, {name:'天路十八弯观景台',region:'甘孜藏族自治州'},
-  {name:'理塘县',region:'甘孜藏族自治州'}, {name:'稻城亚丁景区',region:'甘孜藏族自治州'}, {name:'康定情歌木格措景区',region:'甘孜藏族自治州'},
+  {name:'成都',region:'四川省成都市',coords:[30.67,104.07] as [number,number]},
+  {name:'四姑娘山双桥沟',region:'阿坝藏族羌族自治州',coords:[31.10,102.83] as [number,number]},
+  {name:'丹巴县',region:'甘孜藏族自治州',coords:[30.88,101.89] as [number,number]},
+  {name:'墨石公园景区',region:'甘孜藏族自治州',coords:[30.44,101.56] as [number,number]},
+  {name:'新都桥镇',region:'甘孜藏族自治州',coords:[30.04,101.49] as [number,number]},
+  {name:'理塘县',region:'甘孜藏族自治州',coords:[29.99,100.27] as [number,number]},
+  {name:'稻城亚丁景区',region:'甘孜藏族自治州',coords:[28.46,100.34] as [number,number]},
+  {name:'康定市',region:'甘孜藏族自治州',coords:[30.05,101.96] as [number,number]},
+  {name:'木格措景区',region:'甘孜藏族自治州',coords:[30.15,101.86] as [number,number]},
 ]
 function openMap(provider:'amap'|'baidu',name:string,region:string){
   const url=provider==='amap'
@@ -173,11 +195,16 @@ function downloadOfflineGuide(){
   const text=`成都 + 川西十日自驾离线地图准备清单\n\n高德/百度 App 内提前下载：\n- 成都、雅安、泸定\n- 阿坝州：映秀、卧龙、小金、四姑娘山\n- 甘孜州：丹巴、八美、新都桥、雅江、理塘、稻城、亚丁、康定\n\n关键目的地：\n${mapStops.map((x,i)=>`${i+1}. ${x.name}（${x.region}）`).join('\n')}\n\n提示：出发前更新离线数据；点击网页中的地图按钮后，先核对 POI，再开始导航。\n`
   const href=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));const a=document.createElement('a');a.href=href;a.download='川西离线地图准备清单.txt';a.click();URL.revokeObjectURL(href)
 }
+function LiveLocation(){
+  const map=useMap();const [position,setPosition]=useState<[number,number]|null>(null);const [message,setMessage]=useState('定位我')
+  const locate=()=>{if(!navigator.geolocation){setMessage('不支持定位');return}setMessage('定位中…');navigator.geolocation.getCurrentPosition(pos=>{const next:[number,number]=[pos.coords.latitude,pos.coords.longitude];setPosition(next);map.flyTo(next,13);setMessage('已定位')},()=>setMessage('请允许定位权限'),{enableHighAccuracy:true,timeout:12000})}
+  return <>{position&&<CircleMarker center={position} radius={9} pathOptions={{color:'#fff',weight:3,fillColor:'#2877d4',fillOpacity:1}}><Popup>你当前的位置</Popup></CircleMarker>}<button className="locate-button" onClick={locate}><LocateFixed size={17}/>{message}</button></>
+}
 function MapView(){
-  return <div className="page"><PageHeading eyebrow="路线与离线导航" title="全程地图" note="约 1,735 公里 · 手机可唤起地图 App，桌面端自动打开网页版" action={<button className="primary-button" onClick={downloadOfflineGuide}><Download size={17}/>下载离线清单</button>} />
-    <section className="map-card"><div className="map-bg"><svg viewBox="0 0 900 480" preserveAspectRatio="none"><path d="M115,120 C210,80 220,330 340,300 S440,80 555,160 S720,350 790,260"/><circle cx="115" cy="120" r="8"/><circle cx="260" cy="265" r="8"/><circle cx="340" cy="300" r="8"/><circle cx="455" cy="125" r="8"/><circle cx="555" cy="160" r="8"/><circle cx="700" cy="320" r="8"/><circle cx="790" cy="260" r="8"/></svg>{['四姑娘山','丹巴','墨石','新都桥','理塘','稻城亚丁','康定'].map((x,i)=><span className={`map-label ml${i}`} key={i}>{i+1}<b>{x}</b></span>)}</div>
-      <div className="map-panel"><span className="eyebrow">离线准备</span><h3>这些区域需要提前下载</h3>{['成都 · 雅安 · 泸定','阿坝州 · 卧龙 / 四姑娘山','甘孜北线 · 丹巴 / 新都桥','甘孜南线 · 理塘 / 稻城 / 亚丁'].map((x,i)=><label key={x}><span className="check done"><Check size={13}/></span><div><strong>{x}</strong><small>{[520,680,920,1280][i]} MB 预估</small></div></label>)}<p>地图数据需在高德/百度地图 App 内下载；本网站保存地点清单，实际包大小以地图 App 为准。</p></div>
-    </section>
+  const route=mapStops.map(stop=>stop.coords)
+  return <div className="page"><PageHeading eyebrow="路线与实时定位" title="全程地图" note="10 天 · 约 1,800 公里 · 可缩放查看路线并定位当前位置" action={<button className="primary-button" onClick={downloadOfflineGuide}><Download size={17}/>下载离线清单</button>} />
+    <section className="real-map card"><MapContainer center={[30.12,102.2]} zoom={7} scrollWheelZoom><TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/><Polyline positions={route} pathOptions={{color:'#d95d39',weight:4,dashArray:'8 8'}}/>{mapStops.map((stop,i)=><CircleMarker key={stop.name} center={stop.coords} radius={10} pathOptions={{color:'#fff',weight:3,fillColor:'#174f44',fillOpacity:1}}><Popup><strong>D{i===0?'1–2':i+2} · {stop.name}</strong><br/>{stop.region}<br/><button onClick={()=>openMap('amap',stop.name,stop.region)}>用高德导航</button></Popup></CircleMarker>)}<LiveLocation/></MapContainer></section>
+    <section className="offline-panel card"><div><span className="eyebrow">离线准备</span><h2>出发前下载这些区域</h2><p>网页地图需要网络；无信号路段仍应提前在高德或百度地图 App 下载离线包。</p></div><div className="offline-grid">{['成都 · 雅安 · 泸定','阿坝州 · 卧龙 / 四姑娘山','甘孜北线 · 丹巴 / 新都桥','甘孜南线 · 理塘 / 稻城 / 亚丁'].map((x,i)=><label key={x}><span className="check done"><Check size={13}/></span><div><strong>{x}</strong><small>{[520,680,920,1280][i]} MB 预估</small></div></label>)}</div></section>
     <section className="map-destinations card"><div className="card-top"><div><span className="eyebrow">手机导航</span><h2>沿途目的地</h2></div><small>打开后请先核对地点，再开始导航</small></div><div className="destination-grid">{mapStops.map((stop,i)=><article key={stop.name}><span>{i+1}</span><div><strong>{stop.name}</strong><small>{stop.region}</small></div><button onClick={()=>openMap('amap',stop.name,stop.region)}>高德</button><button onClick={()=>openMap('baidu',stop.name,stop.region)}>百度</button></article>)}</div></section>
   </div>
 }

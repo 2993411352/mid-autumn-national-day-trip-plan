@@ -20,6 +20,8 @@ export type CloudExpense = {
 export type CloudPhoto = { id: string; object_path: string; caption: string | null; signedUrl?: string }
 export type CloudTrip = { id: string; name: string; invite_code: string }
 export type CloudMember = { user_id: string; display_name: string | null; role: 'owner' | 'editor' | 'member' }
+export type CloudNote = { id: string; day_number: number; stop_time: string; stop_title: string; body: string }
+export type GuideLink = { id: string; title: string; url: string; note: string | null; platform: string; created_at: string }
 
 export async function signInWithEmail(email: string) {
   if (!supabase) throw new Error('请先配置 Supabase 环境变量')
@@ -74,6 +76,38 @@ export async function getMembers(tripId: string) {
   const { data, error } = await supabase.from('trip_members').select('user_id,display_name,role').eq('trip_id', tripId).order('joined_at')
   if (error) throw error
   return (data || []) as CloudMember[]
+}
+
+export async function getNotes(tripId: string) {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('notes').select('id,day_number,stop_time,stop_title,body').eq('trip_id', tripId).order('created_at')
+  if (error) throw error
+  return (data || []) as CloudNote[]
+}
+
+export async function createNote(tripId: string, dayNumber: number, stopTime: string, stopTitle: string, body: string) {
+  if (!supabase) throw new Error('后端尚未配置')
+  const { data: auth } = await supabase.auth.getUser()
+  if (!auth.user) throw new Error('请先登录')
+  const { error } = await supabase.from('notes').insert({ trip_id: tripId, day_number: dayNumber, stop_time: stopTime, stop_title: stopTitle, body: body.trim(), created_by: auth.user.id })
+  if (error) throw error
+}
+
+export async function getGuideLinks(tripId: string) {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('guide_links').select('id,title,url,note,platform,created_at').eq('trip_id', tripId).order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []) as GuideLink[]
+}
+
+export async function createGuideLink(tripId: string, input: { title:string; url:string; note:string; platform:string }) {
+  if (!supabase) throw new Error('后端尚未配置')
+  const { data: auth } = await supabase.auth.getUser()
+  if (!auth.user) throw new Error('请先登录')
+  const url = new URL(input.url)
+  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('只支持 http 或 https 链接')
+  const { error } = await supabase.from('guide_links').insert({ trip_id: tripId, ...input, url: url.toString(), created_by: auth.user.id })
+  if (error) throw error
 }
 
 export async function createExpense(tripId: string, expense: { title: string; category: string; payer: string; amount: number }) {
