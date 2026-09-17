@@ -1,15 +1,69 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ArrowRight, CalendarDays, Camera, Check, ChevronRight, CircleDollarSign, CloudSun, Compass, Download, ExternalLink, Fuel, Home, Link, LocateFixed, Map, MapPin, Menu, MessageCircle, Navigation, Plus, Route, Search, Settings, Sparkles, Users, Utensils, WalletCards, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BedDouble, CalendarDays, Camera, Check, ChevronRight, CloudSun, Download, ExternalLink, FolderPlus, Home, Link, LocateFixed, Map, MapPin, Menu, Navigation, Pencil, Plus, Route, Search, Settings, Sparkles, Trash2, Users, WalletCards, X } from 'lucide-react'
 import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
 import { guides, tripDays, type DayPlan } from './data'
-import { askTripAgent, createExpense, createGuideLink, createNote, joinTrip, signInWithEmail, supabase, updateMemberName, uploadPhoto, verifyEmailOtp, type CloudNote, type CloudPhoto, type GuideLink } from './lib/backend'
+import { askTripAgent, createExpense, createGuideGroup, createGuideLink, createNote, deleteNote, joinTrip, signInWithEmail, supabase, updateMemberName, uploadPhoto, upsertAccommodation, verifyEmailOtp, type Accommodation, type CloudNote, type CloudPhoto, type GuideGroup, type GuideLink } from './lib/backend'
 import { useBackend } from './hooks/useBackend'
 import './styles.css'
 import 'leaflet/dist/leaflet.css'
 
 type Tab = 'home' | 'trip' | 'map' | 'expense' | 'gallery'
 type Expense = { id: string | number; title: string; category: string; payer: string; amount: number; date: string }
+
+const LOCAL_NOTES_KEY = 'trip-notes-v1'
+const LOCAL_GUIDES_KEY = 'trip-guides-v1'
+const LOCAL_GUIDE_GROUPS_KEY = 'trip-guide-groups-v1'
+const LOCAL_STAYS_KEY = 'trip-accommodations-v1'
+
+function readLocalNotes(): CloudNote[] {
+  try {
+    const value = JSON.parse(localStorage.getItem(LOCAL_NOTES_KEY) || '[]')
+    return Array.isArray(value) ? value : []
+  } catch { return [] }
+}
+
+function saveLocalNote(note: CloudNote) {
+  try {
+    const rows = readLocalNotes().filter(item => item.id !== note.id)
+    localStorage.setItem(LOCAL_NOTES_KEY, JSON.stringify([...rows, note]))
+    window.dispatchEvent(new CustomEvent('trip-notes-updated'))
+  } catch { /* local storage may be disabled in private browsing */ }
+}
+
+function removeLocalNote(id:string) {
+  localStorage.setItem(LOCAL_NOTES_KEY, JSON.stringify(readLocalNotes().filter(item=>item.id!==id)))
+  window.dispatchEvent(new CustomEvent('trip-notes-updated'))
+}
+
+function readLocalGuides(): GuideLink[] {
+  try {
+    const value = JSON.parse(localStorage.getItem(LOCAL_GUIDES_KEY) || '[]')
+    return Array.isArray(value) ? value : []
+  } catch { return [] }
+}
+
+function saveLocalGuide(link: GuideLink) {
+  try {
+    const rows = readLocalGuides().filter(item => item.id !== link.id)
+    localStorage.setItem(LOCAL_GUIDES_KEY, JSON.stringify([link, ...rows]))
+    window.dispatchEvent(new CustomEvent('trip-guides-updated'))
+  } catch { /* local storage may be disabled in private browsing */ }
+}
+
+function readLocalGuideGroups():GuideGroup[]{try{const value=JSON.parse(localStorage.getItem(LOCAL_GUIDE_GROUPS_KEY)||'[]');return Array.isArray(value)?value:[]}catch{return[]}}
+function saveLocalGuideGroup(group:GuideGroup){localStorage.setItem(LOCAL_GUIDE_GROUPS_KEY,JSON.stringify([...readLocalGuideGroups().filter(x=>x.id!==group.id),group]));window.dispatchEvent(new CustomEvent('trip-guide-groups-updated'))}
+function readLocalStays():Accommodation[]{try{const value=JSON.parse(localStorage.getItem(LOCAL_STAYS_KEY)||'[]');return Array.isArray(value)?value:[]}catch{return[]}}
+function saveLocalStay(stay:Accommodation){localStorage.setItem(LOCAL_STAYS_KEY,JSON.stringify([...readLocalStays().filter(x=>x.day_number!==stay.day_number),stay]));window.dispatchEvent(new CustomEvent('trip-stays-updated'))}
+function randomCover(){return `https://picsum.photos/seed/${crypto.randomUUID()}/720/420`}
+
+function normaliseGuideUrl(value: string) {
+  const raw = value.trim()
+  const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`
+  const url = new URL(candidate)
+  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('只支持 http 或 https 链接')
+  return url.toString()
+}
 
 const navItems: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'home', label: '今日', icon: Home }, { id: 'trip', label: '行程', icon: CalendarDays },
@@ -30,8 +84,22 @@ function App() {
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [localNotes, setLocalNotes] = useState<CloudNote[]>(readLocalNotes)
+  const [localGuides, setLocalGuides] = useState<GuideLink[]>(readLocalGuides)
+  const [localGuideGroups,setLocalGuideGroups]=useState<GuideGroup[]>(readLocalGuideGroups)
+  const [localStays,setLocalStays]=useState<Accommodation[]>(readLocalStays)
   const backend = useBackend()
   const todayWeather = useCurrentWeather()
+  useEffect(() => {
+    const syncNotes = () => setLocalNotes(readLocalNotes())
+    const syncGuides = () => setLocalGuides(readLocalGuides())
+    const syncGroups = () => setLocalGuideGroups(readLocalGuideGroups())
+    const syncStays = () => setLocalStays(readLocalStays())
+    window.addEventListener('trip-notes-updated', syncNotes)
+    window.addEventListener('trip-guides-updated', syncGuides)
+    window.addEventListener('trip-guide-groups-updated',syncGroups);window.addEventListener('trip-stays-updated',syncStays)
+    return () => { window.removeEventListener('trip-notes-updated', syncNotes); window.removeEventListener('trip-guides-updated', syncGuides);window.removeEventListener('trip-guide-groups-updated',syncGroups);window.removeEventListener('trip-stays-updated',syncStays) }
+  }, [])
   const [expenses, setExpenses] = useState<Expense[]>(() => {
     try { return JSON.parse(localStorage.getItem('trip-expenses-v2') || '[]') } catch { return [] }
   })
@@ -45,6 +113,16 @@ function App() {
   const currentName = currentMember?.display_name || backend.session?.user.email?.split('@')[0] || '我'
   const memberNames = backend.tripId ? backend.members.map(x => x.display_name || '同行人') : backend.session ? [] : ['我']
   const memberCount = memberNames.length
+  const notes = useMemo(() => {
+    const rows = [...backend.notes, ...localNotes]
+    return rows.filter((row, index, all) => all.findIndex(item => item.id === row.id) === index)
+  }, [backend.notes, localNotes])
+  const guideLinks = useMemo(() => {
+    const rows = [...backend.guideLinks, ...localGuides]
+    return rows.filter((row, index, all) => all.findIndex(item => item.id === row.id) === index)
+  }, [backend.guideLinks, localGuides])
+  const guideGroups=useMemo(()=>[...backend.guideGroups,...localGuideGroups].filter((row,index,all)=>all.findIndex(x=>x.id===row.id)===index),[backend.guideGroups,localGuideGroups])
+  const accommodations=useMemo(()=>[...backend.accommodations,...localStays].filter((row,index,all)=>all.findIndex(x=>x.day_number===row.day_number)===index),[backend.accommodations,localStays])
   const total = expenses.reduce((sum, x) => sum + x.amount, 0)
   const addExpense = async (expense: Omit<Expense, 'id' | 'date'>) => {
     const optimistic = { ...expense, id: crypto.randomUUID(), date: '今天' }
@@ -65,8 +143,8 @@ function App() {
 
     <main>
       <header className="topbar"><button className="menu-button" onClick={() => setMenuOpen(true)}><Menu/></button><div className="mobile-brand">同行 · 川西</div><div className="top-actions"><button className="search"><Search size={18}/>搜索行程、地点和攻略</button><div className="weather-pill"><CloudSun size={18}/><span>成都</span><b>{todayWeather}</b></div><button className="crew" onClick={()=>setAuthOpen(true)}><Users size={18}/><span>{backend.trip ? `${memberCount} 位同行人` : backend.session ? '使用邀请码加入' : '登录同步'}</span></button></div></header>
-      {tab === 'home' && <HomeView selectedDay={selectedDay} setSelectedDay={setSelectedDay} setTab={setTab} openAuth={()=>setAuthOpen(true)} currentName={currentName} memberCount={memberCount} connected={Boolean(backend.trip)} tripId={backend.tripId} notes={backend.notes} guideLinks={backend.guideLinks} refresh={backend.refresh} />}
-      {tab === 'trip' && <TripView selectedDay={selectedDay} setSelectedDay={setSelectedDay} tripId={backend.tripId} notes={backend.notes} refresh={backend.refresh} />}
+      {tab === 'home' && <HomeView selectedDay={selectedDay} setSelectedDay={setSelectedDay} setTab={setTab} openAuth={()=>setAuthOpen(true)} currentName={currentName} memberCount={memberCount} connected={Boolean(backend.trip)} tripId={backend.tripId} notes={notes} guideLinks={guideLinks} guideGroups={guideGroups} refresh={backend.refresh} />}
+      {tab === 'trip' && <TripView selectedDay={selectedDay} setSelectedDay={setSelectedDay} tripId={backend.tripId} notes={notes} accommodations={accommodations} refresh={backend.refresh} />}
       {tab === 'map' && <MapView />}
       {tab === 'expense' && <ExpenseView expenses={expenses} onAdd={addExpense} cloud={Boolean(backend.trip)} memberNames={memberNames.length ? memberNames : ['我']} />}
       {tab === 'gallery' && <GalleryView tripId={backend.tripId} photos={backend.photos} cloud={Boolean(backend.trip)} memberCount={memberCount || 1} refresh={backend.refresh} openAuth={()=>setAuthOpen(true)} />}
@@ -84,7 +162,7 @@ function PageHeading({ eyebrow, title, note, action }: { eyebrow: string; title:
   return <div className="page-heading"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{note}</p></div>{action}</div>
 }
 
-function HomeView({ selectedDay, setSelectedDay, setTab, openAuth, currentName, memberCount, connected, tripId, notes, guideLinks, refresh }: { selectedDay: number; setSelectedDay: (n:number)=>void; setTab:(t:Tab)=>void; openAuth:()=>void; currentName:string; memberCount:number; connected:boolean; tripId:string|null; notes:CloudNote[]; guideLinks:GuideLink[]; refresh:()=>Promise<void> }) {
+function HomeView({ selectedDay, setSelectedDay, setTab, openAuth, currentName, memberCount, connected, tripId, notes, guideLinks, guideGroups, refresh }: { selectedDay: number; setSelectedDay: (n:number)=>void; setTab:(t:Tab)=>void; openAuth:()=>void; currentName:string; memberCount:number; connected:boolean; tripId:string|null; notes:CloudNote[]; guideLinks:GuideLink[]; guideGroups:GuideGroup[]; refresh:()=>Promise<void> }) {
   const day = tripDays[selectedDay - 1]
   const liveWeather = useTripWeather(day)
   return <div className="page home-page">
@@ -111,23 +189,56 @@ function HomeView({ selectedDay, setSelectedDay, setTab, openAuth, currentName, 
       </div>
     </div>
 
-    <GuideLibrary tripId={tripId} links={guideLinks} refresh={refresh} openAuth={openAuth} />
+    <GuideLibrary tripId={tripId} links={guideLinks} groups={guideGroups} refresh={refresh} />
   </div>
 }
 
 function StopNotes({tripId,dayNumber,stop,notes,refresh,compact=false}:{tripId:string|null;dayNumber:number;stop:{time:string;title:string};notes:CloudNote[];refresh:()=>Promise<void>;compact?:boolean}){
-  const [editing,setEditing]=useState(false);const [body,setBody]=useState('');const [saving,setSaving]=useState(false)
+  const [editing,setEditing]=useState(false);const [body,setBody]=useState('');const [saving,setSaving]=useState(false);const [error,setError]=useState('');const [status,setStatus]=useState('')
   const rows=notes.filter(n=>n.day_number===dayNumber&&n.stop_time===stop.time)
-  const save=async()=>{if(!tripId){alert('请先登录并加入旅程后再添加共享备注');return}if(!body.trim())return;setSaving(true);try{await createNote(tripId,dayNumber,stop.time,stop.title,body);setBody('');setEditing(false);await refresh()}finally{setSaving(false)}}
-  return <div className={`stop-notes ${compact?'compact':''}`}>{rows.map(n=><p key={n.id}>📝 {n.body}</p>)}{editing?<div className="note-editor"><input autoFocus value={body} onChange={e=>setBody(e.target.value)} placeholder="停车、门票、集合点等…"/><button onClick={save} disabled={saving}>{saving?'保存中':'保存'}</button><button onClick={()=>setEditing(false)}>取消</button></div>:<button className="add-note" onClick={()=>setEditing(true)}>添加备注</button>}</div>
+  const save=async()=>{
+    if(!body.trim())return
+    setSaving(true);setError('');setStatus('')
+    const draft: CloudNote={ id:`local-note-${crypto.randomUUID()}`, day_number:dayNumber, stop_time:stop.time, stop_title:stop.title, body:body.trim() }
+    try {
+      if (tripId) {
+        try { await createNote(tripId,dayNumber,stop.time,stop.title,body) }
+        catch { saveLocalNote(draft);setStatus('云端暂不可用，已保存到本机') }
+        try { await refresh() } catch { setStatus('已保存，云端刷新稍后重试') }
+      } else saveLocalNote(draft)
+      setBody('');setEditing(false)
+    } catch (e) { setError(e instanceof Error ? e.message : '保存失败') }
+    finally { setSaving(false) }
+  }
+  const remove=async(note:CloudNote)=>{if(!window.confirm('确定删除这条备注吗？'))return;try{if(note.id.startsWith('local-'))removeLocalNote(note.id);else await deleteNote(note.id);await refresh()}catch(e){setError(e instanceof Error?e.message:'删除失败')}}
+  return <div className={`stop-notes ${compact?'compact':''}`}>{rows.map(n=><p key={n.id}><span>📝 {n.body}</span><button className="delete-note" aria-label="删除备注" onClick={()=>remove(n)}><Trash2 size={12}/></button></p>)}{status&&<small className="note-status">{status}</small>}{editing?<div className="note-editor"><input autoFocus value={body} onChange={e=>setBody(e.target.value)} placeholder="停车、门票、集合点等…"/><button onClick={save} disabled={saving}>{saving?'保存中':'保存'}</button><button onClick={()=>setEditing(false)}>取消</button>{error&&<small className="note-error">{error}</small>}</div>:<button className="add-note" onClick={()=>setEditing(true)}>添加备注</button>}</div>
 }
 
-function GuideLibrary({tripId,links,refresh,openAuth}:{tripId:string|null;links:GuideLink[];refresh:()=>Promise<void>;openAuth:()=>void}){
-  const [open,setOpen]=useState(false);const [saving,setSaving]=useState(false);const [error,setError]=useState('')
-  const submit=async(e:React.FormEvent<HTMLFormElement>)=>{e.preventDefault();if(!tripId){openAuth();return}const f=new FormData(e.currentTarget);setSaving(true);setError('');try{await createGuideLink(tripId,{title:String(f.get('title')),url:String(f.get('url')),note:String(f.get('note')),platform:String(f.get('platform'))});await refresh();setOpen(false)}catch(err){setError(err instanceof Error?err.message:'保存失败')}finally{setSaving(false)}}
-  return <><div className="section-title guides-heading"><div><span className="eyebrow">旅途灵感</span><h2>攻略链接库</h2></div><button onClick={()=>tripId?setOpen(true):openAuth()}><Plus size={15}/>添加链接</button></div>
-    <div className="guide-grid">{links.map(link=><a key={link.id} className="guide-card saved-guide" href={link.url} target="_blank" rel="noreferrer"><div className="guide-visual link-visual"><span>{link.platform==='小红书'?'📕':link.platform==='抖音'?'🎵':'🔗'}</span><em>{link.platform}</em></div><div><small><Link size={13}/>点击打开原文</small><h3>{link.title}</h3><p>{link.note||'未添加备注'}</p><ExternalLink size={14}/></div></a>)}{guides.map(g => <article key={g.title} className="guide-card"><div className="guide-visual" style={{backgroundColor:g.color}}><span>{g.emoji}</span><em>{g.tag}</em></div><div><small><MapPin size={13}/>{g.place}</small><h3>{g.title}</h3><p>{g.meta}</p></div></article>)}</div>
-    {open&&<div className="modal-backdrop" onClick={()=>setOpen(false)}><form className="expense-modal" onSubmit={submit} onClick={e=>e.stopPropagation()}><button type="button" className="modal-close" onClick={()=>setOpen(false)}><X/></button><span className="eyebrow">共享攻略库</span><h2>收藏一个攻略</h2><label>平台<select name="platform"><option>小红书</option><option>抖音</option><option>微信公众号</option><option>网页</option></select></label><label>标题<input required name="title" placeholder="例如：亚丁长线避坑攻略"/></label><label>链接<input required name="url" type="url" placeholder="粘贴 https:// 开头的分享链接"/></label><label>备注<textarea name="note" placeholder="停车点、推荐菜、需要提前预约…"/></label>{error&&<p className="form-notice error">{error}</p>}<button className="primary-button" disabled={saving}>{saving?'保存中…':'保存到攻略库'}</button></form></div>}</>
+const presetGuideGroups:GuideGroup[]=guides.map((g,i)=>({id:`preset-${i+1}`,title:g.title,place:g.place,note:g.meta,cover_url:`https://picsum.photos/seed/chuanxi-${i+1}/720/420`,created_at:''}))
+
+function GuideLibrary({tripId,links,groups,refresh}:{tripId:string|null;links:GuideLink[];groups:GuideGroup[];refresh:()=>Promise<void>}){
+  const [selected,setSelected]=useState<GuideGroup|null>(null);const [linkOpen,setLinkOpen]=useState(false);const [groupOpen,setGroupOpen]=useState(false);const [saving,setSaving]=useState(false);const [error,setError]=useState('');const [status,setStatus]=useState('')
+  const allGroups=[...presetGuideGroups,...groups]
+  const groupLinks=selected?links.filter(link=>link.group_id===selected.id||(!link.group_id&&selected.id==='preset-1')):[]
+  const submit=async(e:React.FormEvent<HTMLFormElement>)=>{
+    e.preventDefault();const form=e.currentTarget;const f=new FormData(form);setSaving(true);setError('')
+    try {
+      const title=String(f.get('title')||'').trim();const note=String(f.get('note')||'').trim();const platform=String(f.get('platform')||'网页');const url=normaliseGuideUrl(String(f.get('url')||''))
+      if (!title) throw new Error('请填写攻略标题')
+      const localDraft:GuideLink={id:`local-guide-${crypto.randomUUID()}`,title,url,note,platform,group_id:selected?.id||null,created_at:new Date().toISOString()}
+      setStatus('')
+      if (tripId) {
+        try { await createGuideLink(tripId,{title,url,note,platform,group_id:selected?.id||null}) }
+        catch { saveLocalGuide(localDraft);setStatus('云端暂不可用，链接已保存到本机') }
+        try { await refresh() } catch { setStatus('链接已保存，云端刷新稍后重试') }
+      } else saveLocalGuide(localDraft)
+      setLinkOpen(false);form.reset()
+    } catch(err){setError(err instanceof Error?err.message:'保存失败')}finally{setSaving(false)}
+  }
+  const submitGroup=async(e:React.FormEvent<HTMLFormElement>)=>{e.preventDefault();const form=e.currentTarget;const f=new FormData(form);const draft={title:String(f.get('title')).trim(),place:String(f.get('place')).trim(),note:String(f.get('note')).trim(),cover_url:randomCover()};if(!draft.title)return;setSaving(true);setError('');try{let created:GuideGroup;if(tripId){try{created=await createGuideGroup(tripId,draft)}catch{created={id:`local-group-${crypto.randomUUID()}`,...draft,created_at:new Date().toISOString()};saveLocalGuideGroup(created)}}else{created={id:`local-group-${crypto.randomUUID()}`,...draft,created_at:new Date().toISOString()};saveLocalGuideGroup(created)}await refresh();setGroupOpen(false);setSelected(created);form.reset()}catch(err){setError(err instanceof Error?err.message:'保存失败')}finally{setSaving(false)}}
+  return <>{selected?<><div className="section-title guides-heading group-detail-heading"><div><button className="back-button" onClick={()=>setSelected(null)}><ArrowLeft size={15}/>返回分组</button><span className="eyebrow">{selected.place||'自定义攻略'}</span><h2>{selected.title}</h2><p className="section-hint">{selected.note||'把相关链接和备注收进这个分组。'}</p>{status&&<p className="guide-status">{status}</p>}</div><button onClick={()=>{setError('');setLinkOpen(true)}}><Plus size={15}/>添加链接</button></div><div className="guide-link-list">{groupLinks.length?groupLinks.map(link=><a key={link.id} className="guide-link-row" href={link.url} target="_blank" rel="noreferrer"><span>{link.platform==='小红书'?'📕':link.platform==='抖音'?'🎵':'🔗'}</span><div><small>{link.platform}</small><strong>{link.title}</strong><p>{link.note||'未添加备注'}</p></div><ExternalLink size={16}/></a>):<div className="empty-group"><Link size={24}/><strong>这个分组还没有链接</strong><p>添加小红书、抖音或网页攻略，之后可以直接打开。</p><button onClick={()=>setLinkOpen(true)}><Plus size={15}/>添加第一条</button></div>}</div></>:<><div className="section-title guides-heading"><div><span className="eyebrow">旅途灵感</span><h2>攻略分组</h2><p className="section-hint">每张卡片都是一个可打开的攻略分组，也可以创建自己的卡片。</p></div><button onClick={()=>{setError('');setGroupOpen(true)}}><FolderPlus size={15}/>新增分组</button></div><div className="guide-grid">{allGroups.map(group=>{const count=links.filter(link=>link.group_id===group.id||(!link.group_id&&group.id==='preset-1')).length;return <button key={group.id} className="guide-card guide-group-card" onClick={()=>setSelected(group)}><div className="guide-visual" style={{backgroundImage:`linear-gradient(180deg,transparent,rgba(14,45,38,.48)),url(${group.cover_url})`}}><em>{count} 条攻略</em></div><div><small><MapPin size={13}/>{group.place||'自定义分组'}</small><h3>{group.title}</h3><p>{group.note||'点击进入并添加攻略'}</p><ChevronRight size={15}/></div></button>})}</div></>}
+    {linkOpen&&<div className="modal-backdrop" onClick={()=>setLinkOpen(false)}><form className="expense-modal" onSubmit={submit} onClick={e=>e.stopPropagation()}><button type="button" className="modal-close" onClick={()=>setLinkOpen(false)}><X/></button><span className="eyebrow">保存到 · {selected?.title}</span><h2>添加攻略链接</h2><label>平台<select name="platform"><option>小红书</option><option>抖音</option><option>微信公众号</option><option>网页</option></select></label><label>标题<input required name="title" placeholder="例如：亚丁长线避坑攻略"/></label><label>链接<input required name="url" type="text" inputMode="url" autoComplete="url" placeholder="粘贴分享链接（可不带 https://）"/></label><label>备注<textarea name="note" placeholder="停车点、推荐菜、需要提前预约…"/></label>{error&&<p className="form-notice error">{error}</p>}<button className="primary-button" disabled={saving}>{saving?'保存中…':'保存到当前分组'}</button></form></div>}
+    {groupOpen&&<div className="modal-backdrop" onClick={()=>setGroupOpen(false)}><form className="expense-modal" onSubmit={submitGroup} onClick={e=>e.stopPropagation()}><button type="button" className="modal-close" onClick={()=>setGroupOpen(false)}><X/></button><span className="eyebrow">自定义攻略卡片</span><h2>新增攻略分组</h2><p className="modal-copy">封面会自动随机生成，创建后可进入分组添加任意链接。</p><label>分组名称<input required name="title" placeholder="例如：成都美食合集"/></label><label>地点<input name="place" placeholder="例如：成都 / 康定"/></label><label>说明<textarea name="note" placeholder="这个分组准备收集什么？"/></label>{error&&<p className="form-notice error">{error}</p>}<button className="primary-button" disabled={saving}>{saving?'创建中…':'创建分组'}</button></form></div>}</>
 }
 
 const weatherPlaces: Record<number, [number, number]> = {
@@ -162,16 +273,25 @@ function useTripWeather(day: DayPlan) {
 
 function setAssistantOpenViaEvent(){ document.querySelector<HTMLButtonElement>('.ai-fab')?.click() }
 
-function TripView({ selectedDay, setSelectedDay, tripId, notes, refresh }: { selectedDay:number; setSelectedDay:(n:number)=>void; tripId:string|null; notes:CloudNote[]; refresh:()=>Promise<void> }) {
+function TripView({ selectedDay, setSelectedDay, tripId, notes, accommodations, refresh }: { selectedDay:number; setSelectedDay:(n:number)=>void; tripId:string|null; notes:CloudNote[]; accommodations:Accommodation[]; refresh:()=>Promise<void> }) {
   const day = tripDays[selectedDay-1]
+  const [stayOpen,setStayOpen]=useState(false)
+  const stay=accommodations.find(x=>x.day_number===day.day)
   return <div className="page">
-    <PageHeading eyebrow="完整计划" title="十日自驾" note="成都两日慢游，再用八天走完四姑娘山、稻城亚丁与木格措。" action={<button className="primary-button"><Plus size={17}/>添加安排</button>} />
+    <PageHeading eyebrow="完整计划" title="十日自驾" note="10 天串联成都、四姑娘山、稻城亚丁与木格措，按天查看路线与提醒。" action={<button className="primary-button"><Plus size={17}/>添加安排</button>} />
     <div className="trip-layout"><div className="trip-days">{tripDays.map(d => <button key={d.day} className={selectedDay===d.day?'active':''} onClick={()=>setSelectedDay(d.day)}><span>D{d.day}</span><div><strong>{d.shortDate} · {d.weekday}</strong><small>{d.title}</small></div><ChevronRight size={18}/></button>)}</div>
       <section className="day-detail card"><div className="day-detail-head"><div><span className="eyebrow">DAY {day.day} · {day.shortDate} · {day.weekday}</span><h2>{day.title}</h2><p><MapPin size={15}/>{day.route}</p></div><span className={`risk ${day.risk}`}>{day.risk}</span></div>
-        <div className="stats"><div><Route/><span>里程<b>{day.distance}</b></span></div><div><Navigation/><span>驾驶<b>{day.drive}</b></span></div><div><Home/><span>住宿<b>{day.stay}</b></span></div><div><CloudSun/><span>天气<b>{day.weather} {day.temperature}</b></span></div></div>
+        <div className="stats"><div><Route/><span>里程<b>{day.distance}</b></span></div><div><Navigation/><span>驾驶<b>{day.drive}</b></span></div><button className="stay-stat" onClick={()=>setStayOpen(true)}><BedDouble/><span>住宿 · 点击编辑<b>{stay?.hotel_name||day.stay}</b></span><Pencil size={13}/></button><div><CloudSun/><span>天气<b>{day.weather} {day.temperature}</b></span></div></div>
         <div className="detail-timeline">{day.stops.map((s,i)=><div key={s.time}><time>{s.time}</time><span className="detail-dot">{i+1}</span><article><strong>{s.title}</strong>{s.note&&<p>{s.note}</p>}<StopNotes tripId={tripId} dayNumber={day.day} stop={s} notes={notes} refresh={refresh}/></article></div>)}</div>
-      </section></div>
+      </section></div>{stayOpen&&<StayEditor day={day} stay={stay} tripId={tripId} refresh={refresh} onClose={()=>setStayOpen(false)}/>}
   </div>
+}
+
+function StayEditor({day,stay,tripId,refresh,onClose}:{day:DayPlan;stay?:Accommodation;tripId:string|null;refresh:()=>Promise<void>;onClose:()=>void}){
+  const [editing,setEditing]=useState(!stay);const [saving,setSaving]=useState(false);const [error,setError]=useState('')
+  const hotel=stay?.hotel_name||day.stay;const address=stay?.address||''
+  const submit=async(e:React.FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const input={day_number:day.day,hotel_name:String(f.get('hotel_name')).trim(),address:String(f.get('address')).trim(),note:String(f.get('note')).trim()};if(!input.hotel_name)return;setSaving(true);setError('');try{if(tripId){try{await upsertAccommodation(tripId,input)}catch{saveLocalStay({id:`local-stay-${day.day}`,...input})}}else saveLocalStay({id:`local-stay-${day.day}`,...input});await refresh();setEditing(false);onClose()}catch(err){setError(err instanceof Error?err.message:'保存失败')}finally{setSaving(false)}}
+  return <div className="modal-backdrop" onClick={onClose}><section className="expense-modal stay-modal" onClick={e=>e.stopPropagation()}><button className="modal-close" onClick={onClose}><X/></button><span className="eyebrow">DAY {day.day} · 住宿安排</span><h2>{editing?'编辑酒店':hotel}</h2>{editing?<form onSubmit={submit}><label>酒店名称<input required name="hotel_name" defaultValue={hotel} placeholder="输入已预订酒店名称"/></label><label>详细地址<input name="address" defaultValue={address} placeholder="用于地图搜索和导航"/></label><label>备注<textarea name="note" defaultValue={stay?.note||''} placeholder="房型、停车、联系电话、入住提醒…"/></label>{error&&<p className="form-notice error">{error}</p>}<button className="primary-button" disabled={saving}>{saving?'保存中…':'保存住宿'}</button></form>:<><div className="stay-summary"><BedDouble size={25}/><div><strong>{hotel}</strong><p>{address||'尚未填写详细地址'}</p>{stay?.note&&<small>{stay.note}</small>}</div></div><div className="stay-actions"><button className="outline-button" onClick={()=>setEditing(true)}><Pencil size={15}/>编辑</button><button className="primary-button" onClick={()=>openMap('amap',hotel,address||day.stay)}><Navigation size={15}/>高德导航</button><button className="outline-button" onClick={()=>openMap('baidu',hotel,address||day.stay)}>百度地图</button></div></>}</section></div>
 }
 
 const mapStops = [
@@ -196,14 +316,18 @@ function downloadOfflineGuide(){
   const href=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));const a=document.createElement('a');a.href=href;a.download='川西离线地图准备清单.txt';a.click();URL.revokeObjectURL(href)
 }
 function LiveLocation(){
-  const map=useMap();const [position,setPosition]=useState<[number,number]|null>(null);const [message,setMessage]=useState('定位我')
-  const locate=()=>{if(!navigator.geolocation){setMessage('不支持定位');return}setMessage('定位中…');navigator.geolocation.getCurrentPosition(pos=>{const next:[number,number]=[pos.coords.latitude,pos.coords.longitude];setPosition(next);map.flyTo(next,13);setMessage('已定位')},()=>setMessage('请允许定位权限'),{enableHighAccuracy:true,timeout:12000})}
-  return <>{position&&<CircleMarker center={position} radius={9} pathOptions={{color:'#fff',weight:3,fillColor:'#2877d4',fillOpacity:1}}><Popup>你当前的位置</Popup></CircleMarker>}<button className="locate-button" onClick={locate}><LocateFixed size={17}/>{message}</button></>
+  const map=useMap();const [position,setPosition]=useState<[number,number]|null>(null);const [accuracy,setAccuracy]=useState<number|null>(null);const [message,setMessage]=useState('定位当前位置')
+  const locate=()=>{if(!navigator.geolocation){setMessage('设备不支持定位');return}setMessage('定位中…');navigator.geolocation.getCurrentPosition(pos=>{const next:[number,number]=[pos.coords.latitude,pos.coords.longitude];setPosition(next);setAccuracy(pos.coords.accuracy);map.flyTo(next,Math.max(map.getZoom(),13),{duration:.8});setMessage('已定位当前位置')},()=>setMessage('请允许定位权限'),{enableHighAccuracy:true,timeout:12000,maximumAge:60000})}
+  useEffect(()=>{
+    if(!navigator.permissions?.query)return
+    navigator.permissions.query({name:'geolocation'}).then(status=>{if(status.state==='granted')locate()}).catch(()=>{})
+  },[map])
+  return <>{position&&<><CircleMarker center={position} radius={20} pathOptions={{color:'#2877d4',weight:1,fillColor:'#2877d4',fillOpacity:.12}}/><CircleMarker center={position} radius={9} pathOptions={{color:'#fff',weight:3,fillColor:'#2877d4',fillOpacity:1}}><Popup><strong>你当前的位置</strong>{accuracy&&<><br/>定位精度约 {Math.round(accuracy)} 米</>}</Popup></CircleMarker></>}<button className="locate-button" aria-label="定位当前所在位置" onClick={locate}><LocateFixed size={17}/>{message}</button></>
 }
 function MapView(){
   const route=mapStops.map(stop=>stop.coords)
   return <div className="page"><PageHeading eyebrow="路线与实时定位" title="全程地图" note="10 天 · 约 1,800 公里 · 可缩放查看路线并定位当前位置" action={<button className="primary-button" onClick={downloadOfflineGuide}><Download size={17}/>下载离线清单</button>} />
-    <section className="real-map card"><MapContainer center={[30.12,102.2]} zoom={7} scrollWheelZoom><TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/><Polyline positions={route} pathOptions={{color:'#d95d39',weight:4,dashArray:'8 8'}}/>{mapStops.map((stop,i)=><CircleMarker key={stop.name} center={stop.coords} radius={10} pathOptions={{color:'#fff',weight:3,fillColor:'#174f44',fillOpacity:1}}><Popup><strong>D{i===0?'1–2':i+2} · {stop.name}</strong><br/>{stop.region}<br/><button onClick={()=>openMap('amap',stop.name,stop.region)}>用高德导航</button></Popup></CircleMarker>)}<LiveLocation/></MapContainer></section>
+    <section className="real-map card"><MapContainer center={[30.12,102.2]} zoom={7} minZoom={5} maxZoom={16} scrollWheelZoom={false} dragging touchZoom doubleClickZoom><TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/><Polyline positions={route} pathOptions={{color:'#d95d39',weight:4,dashArray:'8 8'}}/>{mapStops.map((stop,i)=><CircleMarker key={stop.name} center={stop.coords} radius={10} pathOptions={{color:'#fff',weight:3,fillColor:'#174f44',fillOpacity:1}}><Popup><strong>D{i===0?'1–2':i+2} · {stop.name}</strong><br/>{stop.region}<br/><button onClick={()=>openMap('amap',stop.name,stop.region)}>用高德导航</button></Popup></CircleMarker>)}<LiveLocation/></MapContainer><div className="map-hint">可拖动、双指缩放地图 · 点击右上角定位当前位置</div></section>
     <section className="offline-panel card"><div><span className="eyebrow">离线准备</span><h2>出发前下载这些区域</h2><p>网页地图需要网络；无信号路段仍应提前在高德或百度地图 App 下载离线包。</p></div><div className="offline-grid">{['成都 · 雅安 · 泸定','阿坝州 · 卧龙 / 四姑娘山','甘孜北线 · 丹巴 / 新都桥','甘孜南线 · 理塘 / 稻城 / 亚丁'].map((x,i)=><label key={x}><span className="check done"><Check size={13}/></span><div><strong>{x}</strong><small>{[520,680,920,1280][i]} MB 预估</small></div></label>)}</div></section>
     <section className="map-destinations card"><div className="card-top"><div><span className="eyebrow">手机导航</span><h2>沿途目的地</h2></div><small>打开后请先核对地点，再开始导航</small></div><div className="destination-grid">{mapStops.map((stop,i)=><article key={stop.name}><span>{i+1}</span><div><strong>{stop.name}</strong><small>{stop.region}</small></div><button onClick={()=>openMap('amap',stop.name,stop.region)}>高德</button><button onClick={()=>openMap('baidu',stop.name,stop.region)}>百度</button></article>)}</div></section>
   </div>
@@ -229,7 +353,7 @@ function GalleryView({tripId,photos:cloudPhotos,cloud,memberCount,refresh,openAu
 
 function Assistant({onClose,tripId,authorized,openAuth}:{onClose:()=>void;tripId:string|null;authorized:boolean;openAuth:()=>void}){ const [messages,setMessages]=useState([{from:'ai',text:authorized?'我已经读过这趟 10 天游程，可以帮你检查天气、高反、堵车和预算。想先看哪一天？':'同行助手仅向这趟旅程的受邀成员开放。请先登录并使用邀请码加入。'}]); const [input,setInput]=useState(''); const [sending,setSending]=useState(false)
   const send=async()=>{if(!authorized||!tripId){openAuth();return}if(!input.trim()||sending)return;const q=input;setMessages(m=>[...m,{from:'me',text:q}]);setInput('');setSending(true);try{const answer=await askTripAgent(tripId,q);setMessages(m=>[...m,{from:'ai',text:answer}])}catch(e){setMessages(m=>[...m,{from:'ai',text:`服务暂时不可用：${e instanceof Error?e.message:'未知错误'}`}])}finally{setSending(false)}}
-  return <aside className="assistant"><div className="assistant-head"><div className="ai-icon"><Sparkles/></div><div><strong>同行助手</strong><small><i/> {authorized?'Luna 智能体已连接':'等待成员验证'}</small></div><button onClick={onClose}><X/></button></div><div className="assistant-context"><MapPin size={14}/>{authorized?'正在分析：川西环线 · 8天':'未加入旅程，无法读取计划与账目'}</div><div className="messages">{messages.map((m,i)=><div className={`message ${m.from}`} key={i}>{m.text}</div>)}{sending&&<div className="message ai">正在结合行程和账目分析…</div>}</div><div className="quick-prompts"><button disabled={!authorized} onClick={()=>setInput('D3 天气不好时怎么改？')}>D3 天气不好怎么改？</button><button disabled={!authorized} onClick={()=>setInput('帮我检查高反风险')}>检查高反风险</button></div><div className="chat-input"><input disabled={!authorized} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} placeholder={authorized?'问路线、天气、预算…':'登录并加入后可提问'}/><button onClick={send}><ArrowRight/></button></div><small className="ai-note">{authorized?'模型只生成修改草案，不会自动覆盖团队行程。':'问答与云端行程只对受邀成员开放。'} {!authorized&&<button onClick={openAuth}>登录 / 输入邀请码</button>}</small></aside>
+  return <aside className="assistant"><div className="assistant-head"><div className="ai-icon"><Sparkles/></div><div><strong>同行助手</strong><small><i/> {authorized?'Luna 智能体已连接':'等待成员验证'}</small></div><button onClick={onClose}><X/></button></div><div className="assistant-context"><MapPin size={14}/>{authorized?'正在分析：川西环线 · 10天':'未加入旅程，无法读取计划与账目'}</div><div className="messages">{messages.map((m,i)=><div className={`message ${m.from}`} key={i}>{m.text}</div>)}{sending&&<div className="message ai">正在结合行程和账目分析…</div>}</div><div className="quick-prompts"><button disabled={!authorized} onClick={()=>setInput('D3 天气不好时怎么改？')}>D3 天气不好怎么改？</button><button disabled={!authorized} onClick={()=>setInput('帮我检查高反风险')}>检查高反风险</button></div><div className="chat-input"><input disabled={!authorized} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} placeholder={authorized?'问路线、天气、预算…':'登录并加入后可提问'}/><button onClick={send}><ArrowRight/></button></div><small className="ai-note">{authorized?'模型只生成修改草案，不会自动覆盖团队行程。':'问答与云端行程只对受邀成员开放。'} {!authorized&&<button onClick={openAuth}>登录 / 输入邀请码</button>}</small></aside>
 }
 
 function AuthModal({backend,onClose}:{backend:ReturnType<typeof useBackend>;onClose:()=>void}){
