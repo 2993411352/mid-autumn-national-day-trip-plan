@@ -212,6 +212,14 @@ export async function uploadPhoto(tripId: string, file: File, albumId?: string |
   if (error) throw error
 }
 
+export async function deletePhoto(photo: Pick<CloudPhoto, 'id' | 'object_path'>) {
+  if (!supabase) throw new Error('后端尚未配置')
+  const removed = await supabase.storage.from('trip-photos').remove([photo.object_path])
+  if (removed.error) throw removed.error
+  const { error } = await supabase.from('photos').delete().eq('id', photo.id)
+  if (error) throw error
+}
+
 export async function askTripAgent(tripId: string, message: string) {
   if (!supabase) throw new Error('后端尚未配置')
   const { data, error } = await supabase.functions.invoke('trip-agent', { body: { tripId, message } })

@@ -22,3 +22,14 @@ drop policy if exists "members manage photo albums" on public.photo_albums;
 create policy "members manage photo albums" on public.photo_albums
   for all using (public.is_trip_member(trip_id))
   with check (public.is_trip_member(trip_id));
+
+drop policy if exists "uploaders delete photos" on public.photos;
+drop policy if exists "members delete photos" on public.photos;
+create policy "members delete photos" on public.photos
+  for delete using (public.is_trip_member(trip_id));
+
+drop policy if exists "uploader deletes photo objects" on storage.objects;
+drop policy if exists "trip members delete photo objects" on storage.objects;
+create policy "trip members delete photo objects" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'trip-photos' and public.is_trip_member((storage.foldername(name))[1]::uuid));
