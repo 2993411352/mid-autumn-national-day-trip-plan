@@ -26,6 +26,14 @@ npx supabase link --project-ref 你的项目ID
 npx supabase db push
 ```
 
+如果只是在 CloudBase 重新上传静态压缩包，Supabase 数据库不会自动更新。已有项目升级时，请在 Supabase 的 `SQL Editor`中按顺序执行：
+
+1. `supabase/migrations/202609170001_enforce_ten_day_trip.sql`
+2. `supabase/migrations/202609170002_guides_stays_and_note_delete.sql`
+3. `supabase/migrations/202609170003_expense_dates_and_photo_albums.sql`
+
+执行成功后再刷新网页。Supabase 项目管理员和应用内的旅程成员是两套权限；同一邮箱重新登录会继续使用原来的成员身份。
+
 3. 部署智能体函数：
 
 ```bash

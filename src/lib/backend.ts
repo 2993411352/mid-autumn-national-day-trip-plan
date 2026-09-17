@@ -17,7 +17,8 @@ export type CloudExpense = {
   expense_date: string
 }
 
-export type CloudPhoto = { id: string; object_path: string; caption: string | null; signedUrl?: string }
+export type CloudPhoto = { id: string; object_path: string; caption: string | null; album_id: string | null; signedUrl?: string }
+export type PhotoAlbum = { id: string; title: string; note: string | null; created_at: string }
 export type CloudTrip = { id: string; name: string; invite_code: string }
 export type CloudMember = { user_id: string; display_name: string | null; role: 'owner' | 'editor' | 'member' }
 export type CloudNote = { id: string; day_number: number; stop_time: string; stop_title: string; body: string }
@@ -135,6 +136,14 @@ export async function createGuideGroup(tripId: string, input: { title:string; pl
   return data as GuideGroup
 }
 
+export async function deleteGuideGroup(id: string) {
+  if (!supabase) throw new Error('后端尚未配置')
+  const links = await supabase.from('guide_links').delete().eq('group_id', id)
+  if (links.error) throw links.error
+  const group = await supabase.from('guide_groups').delete().eq('id', id)
+  if (group.error) throw group.error
+}
+
 export async function getAccommodations(tripId: string) {
   if (!supabase) return []
   const { data, error } = await supabase.from('accommodations').select('id,day_number,hotel_name,address,note').eq('trip_id', tripId).order('day_number')
@@ -151,17 +160,17 @@ export async function upsertAccommodation(tripId: string, input: { day_number:nu
   return data as Accommodation
 }
 
-export async function createExpense(tripId: string, expense: { title: string; category: string; payer: string; amount: number }) {
+export async function createExpense(tripId: string, expense: { title: string; category: string; payer: string; amount: number; date: string }) {
   if (!supabase) return null
   const { data: auth } = await supabase.auth.getUser()
-  const { data, error } = await supabase.from('expenses').insert({ trip_id: tripId, title: expense.title, category: expense.category, payer_name: expense.payer, amount: expense.amount, created_by: auth.user?.id }).select().single()
+  const { data, error } = await supabase.from('expenses').insert({ trip_id: tripId, title: expense.title, category: expense.category, payer_name: expense.payer, amount: expense.amount, expense_date: expense.date, created_by: auth.user?.id }).select().single()
   if (error) throw error
   return data
 }
 
 export async function getPhotos(tripId: string) {
   if (!supabase) return []
-  const { data, error } = await supabase.from('photos').select('id,object_path,caption').eq('trip_id', tripId).order('created_at', { ascending: false })
+  const { data, error } = await supabase.from('photos').select('id,object_path,caption,album_id').eq('trip_id', tripId).order('created_at', { ascending: false })
   if (error) throw error
   return Promise.all((data || []).map(async photo => {
     const signed = await supabase.storage.from('trip-photos').createSignedUrl(photo.object_path, 3600)
@@ -169,7 +178,29 @@ export async function getPhotos(tripId: string) {
   })) as Promise<CloudPhoto[]>
 }
 
-export async function uploadPhoto(tripId: string, file: File) {
+export async function getPhotoAlbums(tripId: string) {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('photo_albums').select('id,title,note,created_at').eq('trip_id', tripId).order('created_at')
+  if (error) throw error
+  return (data || []) as PhotoAlbum[]
+}
+
+export async function createPhotoAlbum(tripId: string, input: { title: string; note: string }) {
+  if (!supabase) throw new Error('后端尚未配置')
+  const { data: auth } = await supabase.auth.getUser()
+  if (!auth.user) throw new Error('请先登录')
+  const { data, error } = await supabase.from('photo_albums').insert({ trip_id: tripId, title: input.title.trim(), note: input.note.trim(), created_by: auth.user.id }).select('id,title,note,created_at').single()
+  if (error) throw error
+  return data as PhotoAlbum
+}
+
+export async function deletePhotoAlbum(id: string) {
+  if (!supabase) throw new Error('后端尚未配置')
+  const { error } = await supabase.from('photo_albums').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function uploadPhoto(tripId: string, file: File, albumId?: string | null) {
   if (!supabase) throw new Error('后端尚未配置')
   const { data: auth } = await supabase.auth.getUser()
   if (!auth.user) throw new Error('请先登录')
@@ -177,7 +208,7 @@ export async function uploadPhoto(tripId: string, file: File) {
   const path = `${tripId}/${auth.user.id}/${crypto.randomUUID()}-${safeName}`
   const uploaded = await supabase.storage.from('trip-photos').upload(path, file, { cacheControl: '3600', upsert: false })
   if (uploaded.error) throw uploaded.error
-  const { error } = await supabase.from('photos').insert({ trip_id: tripId, object_path: path, original_name: file.name, mime_type: file.type, size_bytes: file.size, uploaded_by: auth.user.id })
+  const { error } = await supabase.from('photos').insert({ trip_id: tripId, object_path: path, original_name: file.name, mime_type: file.type, size_bytes: file.size, album_id: albumId || null, uploaded_by: auth.user.id })
   if (error) throw error
 }
 
