@@ -168,6 +168,12 @@ export async function createExpense(tripId: string, expense: { title: string; ca
   return data
 }
 
+export async function deleteExpense(id: string) {
+  if (!supabase) throw new Error('后端尚未配置')
+  const { error } = await supabase.from('expenses').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function getPhotos(tripId: string) {
   if (!supabase) return []
   const { data, error } = await supabase.from('photos').select('id,object_path,caption,album_id').eq('trip_id', tripId).order('created_at', { ascending: false })

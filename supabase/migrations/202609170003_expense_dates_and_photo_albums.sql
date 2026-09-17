@@ -3,6 +3,11 @@
 alter table public.expenses
   add column if not exists expense_date date not null default current_date;
 
+drop policy if exists "owners delete own expenses" on public.expenses;
+drop policy if exists "members delete expenses" on public.expenses;
+create policy "members delete expenses" on public.expenses
+  for delete using (public.is_trip_member(trip_id));
+
 create table if not exists public.photo_albums (
   id uuid primary key default gen_random_uuid(),
   trip_id uuid not null references public.trips(id) on delete cascade,
